@@ -55,46 +55,34 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  id-token: write
+  contents: write
+  pull-requests: write
 
 jobs:
   copier-update:
     runs-on: ubuntu-latest
     steps:
-      # Mint a short-lived token via octo-sts (or use any token with the perms
-      # below). GITHUB_TOKEN also works for public template repos.
-      - uses: octo-sts/action@v1
-        id: octo-sts
-        with:
-          scope: your-org
-          identity: copier-update
-          domain: octo-sts.example.com
-
-      - uses: actions/checkout@v5
-        with:
-          token: ${{ steps.octo-sts.outputs.token }}
-          persist-credentials: true
+      - uses: actions/checkout@v6
 
       - name: Run copier update
         id: copier
         uses: fohte/copier-update-action@v0
         with:
           template-repo: your-org/your-template
-          github-token: ${{ steps.octo-sts.outputs.token }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create branch, commit, and open PR
         if: steps.copier.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ steps.octo-sts.outputs.token }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TARGET: ${{ steps.copier.outputs.target-version }}
           UNRESOLVED: ${{ steps.copier.outputs.unresolved-files }}
         run: |
           branch="copier-update/${TARGET}"
           git switch -c "$branch"
           git add -A
-          git -c user.name='copier-update[bot]' \
-              -c user.email='copier-update[bot]@users.noreply.github.com' \
+          git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
               commit -m "chore: copier update to ${TARGET}"
           git push -u origin "$branch"
 
@@ -107,6 +95,8 @@ jobs:
             --title "chore: copier update to ${TARGET}" \
             --body "$body"
 ```
+
+> The default `GITHUB_TOKEN` cannot trigger downstream workflows (e.g. CI on the PR it just opened) by GitHub design. If your repo needs the PR to run CI, supply a [GitHub App token](https://docs.github.com/en/actions/security-guides/automatic-token-authentication#using-the-github_token-in-a-workflow) or a federated identity token (e.g. via [octo-sts](https://github.com/octo-sts/app)) instead.
 
 ### Caller responsibilities (out of scope for this action)
 
