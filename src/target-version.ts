@@ -1,49 +1,28 @@
-import type { ExecOptions } from '@actions/exec'
-
 import type { Inputs } from '@/inputs'
 
-export type Exec = (
-  commandLine: string,
-  args?: string[],
-  options?: ExecOptions,
-) => Promise<number>
+export interface GetLatestRelease {
+  (params: {
+    owner: string
+    repo: string
+  }): Promise<{ data: { tag_name: string } }>
+}
 
 export async function resolveTargetVersion(
-  inputs: Pick<Inputs, 'templateRepo' | 'targetVersion' | 'githubToken'>,
-  exec: Exec,
+  inputs: Pick<Inputs, 'templateRepo' | 'targetVersion'>,
+  getLatestRelease: GetLatestRelease,
 ): Promise<string> {
   if (inputs.targetVersion !== '') {
     return inputs.targetVersion
   }
 
-  let stdout = ''
-  await exec(
-    'gh',
-    [
-      'release',
-      'view',
-      '--repo',
-      inputs.templateRepo,
-      '--json',
-      'tagName',
-      '--jq',
-      '.tagName',
-    ],
-    {
-      env: { ...process.env, GH_TOKEN: inputs.githubToken },
-      listeners: {
-        stdout: (data: Buffer) => {
-          stdout += data.toString()
-        },
-      },
-    },
-  )
-
-  const resolved = stdout.trim()
-  if (resolved === '') {
+  const slash = inputs.templateRepo.indexOf('/')
+  const owner = inputs.templateRepo.slice(0, slash)
+  const repo = inputs.templateRepo.slice(slash + 1)
+  const { data } = await getLatestRelease({ owner, repo })
+  if (data.tag_name === '') {
     throw new Error(
-      `Failed to resolve latest release tag for ${inputs.templateRepo}: gh returned empty output`,
+      `Failed to resolve latest release tag for ${inputs.templateRepo}: empty tag_name`,
     )
   }
-  return resolved
+  return data.tag_name
 }
