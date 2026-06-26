@@ -9,7 +9,7 @@ export type Exec = (
 const CONFLICT_MARKER = '<<<<<<< before updating'
 
 export async function detectConflicts(exec: Exec): Promise<string[]> {
-  let stdout = ''
+  const chunks: Buffer[] = []
   const exitCode = await exec(
     'git',
     [
@@ -24,7 +24,7 @@ export async function detectConflicts(exec: Exec): Promise<string[]> {
       ignoreReturnCode: true,
       listeners: {
         stdout: (data: Buffer) => {
-          stdout += data.toString()
+          chunks.push(data)
         },
       },
     },
@@ -37,5 +37,8 @@ export async function detectConflicts(exec: Exec): Promise<string[]> {
     throw new Error(`git grep failed with exit code ${String(exitCode)}`)
   }
 
-  return stdout.split('\0').filter((line) => line.length > 0)
+  return Buffer.concat(chunks)
+    .toString('utf8')
+    .split('\0')
+    .filter((line) => line.length > 0)
 }
