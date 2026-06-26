@@ -1,3 +1,4 @@
+import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
 
@@ -8,6 +9,11 @@ import { type Exec, installMergiraf, MERGIRAF_VERSION } from '@/mergiraf'
 
 vi.mock('@actions/core', () => ({
   addPath: vi.fn(),
+}))
+
+vi.mock('node:fs/promises', () => ({
+  mkdir: vi.fn(),
+  chmod: vi.fn(),
 }))
 
 interface ExecCall {
@@ -43,6 +49,8 @@ describe('installMergiraf', () => {
 
   beforeEach(() => {
     vi.mocked(core.addPath).mockClear()
+    vi.mocked(fs.mkdir).mockClear()
+    vi.mocked(fs.chmod).mockClear()
   })
 
   afterEach(() => {
@@ -59,10 +67,11 @@ describe('installMergiraf', () => {
       result,
       calls,
       addPathArgs: vi.mocked(core.addPath).mock.calls,
+      mkdirCalls: vi.mocked(fs.mkdir).mock.calls,
+      chmodCalls: vi.mocked(fs.chmod).mock.calls,
     }).toEqual({
       result: binPath,
       calls: [
-        { commandLine: 'mkdir', args: ['-p', binDir] },
         {
           commandLine: 'bash',
           args: [
@@ -70,9 +79,10 @@ describe('installMergiraf', () => {
             `set -euo pipefail; curl -fsSL "${url}" | tar -xz -C "${binDir}"`,
           ],
         },
-        { commandLine: 'chmod', args: ['+x', binPath] },
       ],
       addPathArgs: [[binDir]],
+      mkdirCalls: [[binDir, { recursive: true }]],
+      chmodCalls: [[binPath, 0o755]],
     })
   })
 
@@ -92,6 +102,8 @@ describe('installMergiraf', () => {
       result,
       calls,
       addPathArgs: vi.mocked(core.addPath).mock.calls,
+      mkdirCalls: vi.mocked(fs.mkdir).mock.calls,
+      chmodCalls: vi.mocked(fs.chmod).mock.calls,
     }).toEqual({
       result: {
         ok: false,
@@ -100,6 +112,8 @@ describe('installMergiraf', () => {
       },
       calls: [],
       addPathArgs: [],
+      mkdirCalls: [],
+      chmodCalls: [],
     })
   })
 })
