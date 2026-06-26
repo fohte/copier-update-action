@@ -1,0 +1,14 @@
+# Changes here will be overwritten by Copier
+_commit: v0.8.9
+_src_path: https://github.com/fohte/generic-boilerplate
+auto_merge_release_pr: false
+description: Run copier update with mergiraf-driven conflict resolution as a reusable
+    GitHub Action
+is_public: true
+project_name: copier-update-action
+release_type: node
+repo_language: en
+subpackages: []
+type: node
+use_release_please: true
+use_storybook: false
