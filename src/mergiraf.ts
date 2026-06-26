@@ -1,6 +1,6 @@
-import * as fs from 'node:fs/promises'
-import * as os from 'node:os'
-import * as path from 'node:path'
+import { chmod, mkdir } from 'node:fs/promises'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 
 import * as core from '@actions/core'
 import type { ExecOptions } from '@actions/exec'
@@ -23,16 +23,16 @@ export async function installMergiraf(exec: Exec): Promise<string> {
     )
   }
 
-  const binDir = path.join(os.homedir(), '.local', 'bin')
-  const binPath = path.join(binDir, 'mergiraf')
+  const binDir = join(homedir(), '.local', 'bin')
+  const binPath = join(binDir, 'mergiraf')
   const url = `https://codeberg.org/mergiraf/mergiraf/releases/download/${MERGIRAF_VERSION}/${ASSET}`
 
-  await fs.mkdir(binDir, { recursive: true })
+  await mkdir(binDir, { recursive: true })
   await exec('bash', [
     '-c',
     `set -euo pipefail; curl -fsSL "${url}" | tar -xz -C "${binDir}"`,
   ])
-  await fs.chmod(binPath, 0o755)
+  await chmod(binPath, 0o755)
   core.addPath(binDir)
 
   return binPath

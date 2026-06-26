@@ -1,8 +1,8 @@
-import * as fs from 'node:fs/promises'
-import * as os from 'node:os'
-import * as path from 'node:path'
+import { chmod, mkdir } from 'node:fs/promises'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 
-import * as core from '@actions/core'
+import { addPath } from '@actions/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { type Exec, installMergiraf, MERGIRAF_VERSION } from '@/mergiraf'
@@ -39,18 +39,18 @@ const stubPlatform = (platform: NodeJS.Platform, arch: string): void => {
 }
 
 describe('installMergiraf', () => {
-  const home = os.homedir()
-  const binDir = path.join(home, '.local', 'bin')
-  const binPath = path.join(binDir, 'mergiraf')
+  const home = homedir()
+  const binDir = join(home, '.local', 'bin')
+  const binPath = join(binDir, 'mergiraf')
   const url = `https://codeberg.org/mergiraf/mergiraf/releases/download/${MERGIRAF_VERSION}/mergiraf_x86_64-unknown-linux-gnu.tar.gz`
 
   const originalPlatform = process.platform
   const originalArch = process.arch
 
   beforeEach(() => {
-    vi.mocked(core.addPath).mockClear()
-    vi.mocked(fs.mkdir).mockClear()
-    vi.mocked(fs.chmod).mockClear()
+    vi.mocked(addPath).mockClear()
+    vi.mocked(mkdir).mockClear()
+    vi.mocked(chmod).mockClear()
   })
 
   afterEach(() => {
@@ -66,9 +66,9 @@ describe('installMergiraf', () => {
     expect({
       result,
       calls,
-      addPathArgs: vi.mocked(core.addPath).mock.calls,
-      mkdirCalls: vi.mocked(fs.mkdir).mock.calls,
-      chmodCalls: vi.mocked(fs.chmod).mock.calls,
+      addPathArgs: vi.mocked(addPath).mock.calls,
+      mkdirCalls: vi.mocked(mkdir).mock.calls,
+      chmodCalls: vi.mocked(chmod).mock.calls,
     }).toEqual({
       result: binPath,
       calls: [
@@ -101,9 +101,9 @@ describe('installMergiraf', () => {
     expect({
       result,
       calls,
-      addPathArgs: vi.mocked(core.addPath).mock.calls,
-      mkdirCalls: vi.mocked(fs.mkdir).mock.calls,
-      chmodCalls: vi.mocked(fs.chmod).mock.calls,
+      addPathArgs: vi.mocked(addPath).mock.calls,
+      mkdirCalls: vi.mocked(mkdir).mock.calls,
+      chmodCalls: vi.mocked(chmod).mock.calls,
     }).toEqual({
       result: {
         ok: false,
