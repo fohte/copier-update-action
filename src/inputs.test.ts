@@ -65,7 +65,7 @@ describe('validateInputs', () => {
   })
 
   it('passes when only target-version is given', () => {
-    expect(run({ targetVersion: 'v1.2.3', githubToken: '' })).not.toThrow()
+    expect(run({})).not.toThrow()
   })
 
   it('passes when only github-token is given (target-version resolved at runtime)', () => {
@@ -78,10 +78,16 @@ describe('validateInputs', () => {
     )
   })
 
-  it('throws when template-repo is not in owner/repo form', () => {
-    expect(run({ templateRepo: 'not-a-valid-repo' })).toThrow(
+  it.each([
+    'not-a-valid-repo',
+    'fohte/..',
+    'fohte/.',
+    'fohte/-repo',
+    '-fohte/repo',
+  ])('throws when template-repo is not in owner/repo form: %s', (value) => {
+    expect(run({ templateRepo: value })).toThrow(
       new Error(
-        '`template-repo` must be in `owner/repo` form (got: not-a-valid-repo)',
+        `\`template-repo\` must be in \`owner/repo\` form (got: ${value})`,
       ),
     )
   })
