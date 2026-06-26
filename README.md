@@ -96,8 +96,6 @@ jobs:
             --body "$body"
 ```
 
-> The default `GITHUB_TOKEN` cannot trigger downstream workflows (e.g. CI on the PR it just opened) by GitHub design. If your repo needs the PR to run CI, supply a [GitHub App token](https://docs.github.com/en/actions/security-guides/automatic-token-authentication#using-the-github_token-in-a-workflow) or a federated identity token (e.g. via [octo-sts](https://github.com/octo-sts/app)) instead.
-
 ### Caller responsibilities (out of scope for this action)
 
 The action intentionally does **not** do any of the following. The caller workflow must handle them:
