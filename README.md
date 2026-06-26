@@ -101,7 +101,7 @@ jobs:
           body="Updates the template to \`${TARGET}\`."
           if [ -n "$UNRESOLVED" ]; then
             files=$(echo "$UNRESOLVED" | jq -R -s -c 'split("\n") | map(select(length>0))')
-            body="$body\n\nUnresolved conflict files: \`$files\`"
+            body=$(printf '%s\n\nUnresolved conflict files: `%s`' "$body" "$files")
           fi
           gh pr create --base main --head "$branch" \
             --title "chore: copier update to ${TARGET}" \
