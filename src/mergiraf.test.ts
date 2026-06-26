@@ -1,5 +1,6 @@
-import { chmod, mkdir } from 'node:fs/promises'
-import { homedir } from 'node:os'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { stat, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { addPath } from '@actions/core'
@@ -11,21 +12,21 @@ vi.mock('@actions/core', () => ({
   addPath: vi.fn(),
 }))
 
-vi.mock('node:fs/promises', () => ({
-  mkdir: vi.fn(),
-  chmod: vi.fn(),
-}))
-
 interface ExecCall {
   commandLine: string
   args: string[]
 }
 
-const createFakeExec = (): { exec: Exec; calls: ExecCall[] } => {
+const createFakeExec = (
+  binPathToCreate: string,
+): { exec: Exec; calls: ExecCall[] } => {
   const calls: ExecCall[] = []
-  const exec: Exec = (commandLine, args = []) => {
+  const exec: Exec = async (commandLine, args = []) => {
     calls.push({ commandLine, args })
-    return Promise.resolve(0)
+    if (commandLine === 'bash') {
+      await writeFile(binPathToCreate, '')
+    }
+    return 0
   }
   return { exec, calls }
 }
@@ -38,28 +39,40 @@ const stubPlatform = (platform: NodeJS.Platform, arch: string): void => {
   Object.defineProperty(process, 'arch', { value: arch, configurable: true })
 }
 
-describe('installMergiraf', () => {
-  const home = homedir()
-  const binDir = join(home, '.local', 'bin')
-  const binPath = join(binDir, 'mergiraf')
-  const url = `https://codeberg.org/mergiraf/mergiraf/releases/download/${MERGIRAF_VERSION}/mergiraf_x86_64-unknown-linux-gnu.tar.gz`
+const pathExists = async (path: string): Promise<boolean> => {
+  try {
+    await stat(path)
+    return true
+  } catch {
+    return false
+  }
+}
 
+describe('installMergiraf', () => {
+  const originalHome = process.env['HOME']
   const originalPlatform = process.platform
   const originalArch = process.arch
 
+  let fakeHome: string
+
   beforeEach(() => {
+    fakeHome = mkdtempSync(join(tmpdir(), 'mergiraf-test-'))
+    process.env['HOME'] = fakeHome
     vi.mocked(addPath).mockClear()
-    vi.mocked(mkdir).mockClear()
-    vi.mocked(chmod).mockClear()
   })
 
   afterEach(() => {
+    rmSync(fakeHome, { recursive: true, force: true })
+    process.env['HOME'] = originalHome
     stubPlatform(originalPlatform, originalArch)
   })
 
   it('installs mergiraf into ~/.local/bin and exposes the directory on PATH', async () => {
     stubPlatform('linux', 'x64')
-    const { exec, calls } = createFakeExec()
+    const binDir = join(fakeHome, '.local', 'bin')
+    const binPath = join(binDir, 'mergiraf')
+    const url = `https://codeberg.org/mergiraf/mergiraf/releases/download/${MERGIRAF_VERSION}/mergiraf_x86_64-unknown-linux-gnu.tar.gz`
+    const { exec, calls } = createFakeExec(binPath)
 
     const result = await installMergiraf(exec)
 
@@ -67,8 +80,8 @@ describe('installMergiraf', () => {
       result,
       calls,
       addPathArgs: vi.mocked(addPath).mock.calls,
-      mkdirCalls: vi.mocked(mkdir).mock.calls,
-      chmodCalls: vi.mocked(chmod).mock.calls,
+      binDirExists: await pathExists(binDir),
+      binPathMode: (await stat(binPath)).mode & 0o777,
     }).toEqual({
       result: binPath,
       calls: [
@@ -81,14 +94,16 @@ describe('installMergiraf', () => {
         },
       ],
       addPathArgs: [[binDir]],
-      mkdirCalls: [[binDir, { recursive: true }]],
-      chmodCalls: [[binPath, 0o755]],
+      binDirExists: true,
+      binPathMode: 0o755,
     })
   })
 
-  it('rejects on unsupported platform without invoking exec or PATH side effects', async () => {
+  it('rejects on unsupported platform without touching the filesystem or PATH', async () => {
     stubPlatform('darwin', 'arm64')
-    const { exec, calls } = createFakeExec()
+    const binDir = join(fakeHome, '.local', 'bin')
+    const binPath = join(binDir, 'mergiraf')
+    const { exec, calls } = createFakeExec(binPath)
 
     const result = await installMergiraf(exec).then(
       (value) => ({ ok: true as const, value }),
@@ -102,8 +117,7 @@ describe('installMergiraf', () => {
       result,
       calls,
       addPathArgs: vi.mocked(addPath).mock.calls,
-      mkdirCalls: vi.mocked(mkdir).mock.calls,
-      chmodCalls: vi.mocked(chmod).mock.calls,
+      binDirExists: await pathExists(binDir),
     }).toEqual({
       result: {
         ok: false,
@@ -112,8 +126,7 @@ describe('installMergiraf', () => {
       },
       calls: [],
       addPathArgs: [],
-      mkdirCalls: [],
-      chmodCalls: [],
+      binDirExists: false,
     })
   })
 })
