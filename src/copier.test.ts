@@ -84,6 +84,6 @@ describe('runCopierUpdate', () => {
 
     await expect(
       runCopierUpdate({ targetVersion: 'v1.2.3', copierVersion: '' }, exec),
-    ).rejects.toThrow('copier failed with exit code 1')
+    ).rejects.toEqual(new Error('copier failed with exit code 1'))
   })
 })
