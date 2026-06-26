@@ -1,0 +1,51 @@
+name: 'Copier Update with Auto Conflict Resolution'
+description: |
+  Run `copier update --trust` against a copier template repository and
+  automatically resolve per-block conflict markers using mergiraf.
+author: 'Hayato Kawai'
+branding:
+  icon: 'refresh-cw'
+  color: 'blue'
+
+inputs:
+  template-repo:
+    description: |
+      Copier template GitHub repository in `owner/repo` form
+      (e.g. `fohte/generic-boilerplate`).
+    required: true
+  target-version:
+    description: |
+      Ref passed to `copier update --vcs-ref`. When empty, the action resolves
+      the latest release of `template-repo` via `gh release view`.
+    required: false
+    default: ''
+  github-token:
+    description: |
+      Token used to authenticate `gh release view` when `target-version` is
+      empty. Unused when `target-version` is set.
+    required: false
+    default: ''
+  copier-version:
+    description: |
+      Pin the copier version via `pipx run copier==<version>`. When empty,
+      `pipx run copier` (latest) is used.
+    required: false
+    default: ''
+
+outputs:
+  target-version:
+    description: |
+      Resolved template ref. Either the `target-version` input passthrough or
+      the latest tag resolved by the action (e.g. `v0.8.10`).
+  changed:
+    description: |
+      `'true'` if there are tracked-file diffs after the update, `'false'`
+      otherwise. Based on the exit code of `git diff --quiet HEAD --`.
+  unresolved-files:
+    description: |
+      Newline-separated list of files that still contain conflict markers
+      after resolution. Empty string when none.
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
