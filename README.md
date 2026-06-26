@@ -106,15 +106,6 @@ The action intentionally does **not** do any of the following. The caller workfl
 - Authentication minting (octo-sts, GitHub App, PAT, etc.)
 - **Restoring executable bits on scripts** under e.g. `scripts/bootstrap`. Git tracks executable bits, but copier renders files with default permissions; if the template ships executable scripts, restore them in the caller step (`chmod +x scripts/bootstrap`) before committing.
 
-## Recommended `uses:` reference style
-
-| reference                   | recommendation | when to use                                                                   |
-| --------------------------- | -------------- | ----------------------------------------------------------------------------- |
-| `@v<major>`                 | ◎              | the default. Floating major tag (`@v0` today, `@v1` after 1.0.0).             |
-| `@v<major>.<minor>.<patch>` | ○              | what Renovate pins to once it unpins the floating major. Stable and explicit. |
-| `@<full sha>`               | △              | strict supply-chain auditing. Update via Renovate or pinact.                  |
-| `@main`                     | ✗              | not recommended. Breaking changes may land at any time during development.    |
-
 ## Security considerations
 
 - **`--trust` is always passed to copier.** copier templates can execute arbitrary jinja, `_tasks`, and pre/post update hooks. The action passes `--trust` unconditionally because the consumer is presumed to have already chosen to trust the template (they reference it in `.copier-answers.yml`). If you reference a template you do not control, do not use this action.
@@ -124,7 +115,7 @@ The action intentionally does **not** do any of the following. The caller workfl
 
 ## Development
 
-This is a JavaScript action. Source lives under `src/`; the bundled `dist/index.js` (built with [`@vercel/ncc`](https://github.com/vercel/ncc)) is committed so `runs.using: node20` can load it directly. CI verifies `dist/` is in sync with `src/` on every PR.
+This is a JavaScript action. Source lives under `src/`; the bundled `dist/index.js` (built with [`@vercel/ncc`](https://github.com/vercel/ncc)) is committed so `runs.using: node24` can load it directly. CI verifies `dist/` is in sync with `src/` on every PR.
 
 ```bash
 pnpm install
