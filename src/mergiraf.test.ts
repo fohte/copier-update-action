@@ -48,85 +48,95 @@ const pathExists = async (path: string): Promise<boolean> => {
   }
 }
 
-describe('installMergiraf', () => {
-  const originalHome = process.env['HOME']
-  const originalPlatform = process.platform
-  const originalArch = process.arch
+const originalHome = process.env['HOME']
+const originalPlatform = process.platform
+const originalArch = process.arch
 
-  let fakeHome: string
+let fakeHome: string
 
-  beforeEach(() => {
-    fakeHome = mkdtempSync(join(tmpdir(), 'mergiraf-test-'))
-    process.env['HOME'] = fakeHome
-    vi.mocked(addPath).mockClear()
-  })
+beforeEach(() => {
+  fakeHome = mkdtempSync(join(tmpdir(), 'mergiraf-test-'))
+  process.env['HOME'] = fakeHome
+  vi.mocked(addPath).mockClear()
+})
 
-  afterEach(() => {
-    rmSync(fakeHome, { recursive: true, force: true })
-    process.env['HOME'] = originalHome
-    stubPlatform(originalPlatform, originalArch)
-  })
+afterEach(() => {
+  rmSync(fakeHome, { recursive: true, force: true })
+  process.env['HOME'] = originalHome
+  stubPlatform(originalPlatform, originalArch)
+})
 
-  it('installs mergiraf into ~/.local/bin and exposes the directory on PATH', async () => {
+describe('installMergiraf on linux/x64', () => {
+  let binDir: string
+  let binPath: string
+  let calls: ExecCall[]
+  let result: string
+
+  beforeEach(async () => {
     stubPlatform('linux', 'x64')
-    const binDir = join(fakeHome, '.local', 'bin')
-    const binPath = join(binDir, 'mergiraf')
-    const url = `https://codeberg.org/mergiraf/mergiraf/releases/download/${MERGIRAF_VERSION}/mergiraf_x86_64-unknown-linux-gnu.tar.gz`
-    const { exec, calls } = createFakeExec(binPath)
-
-    const result = await installMergiraf(exec)
-
-    expect({
-      result,
-      calls,
-      addPathArgs: vi.mocked(addPath).mock.calls,
-      binDirExists: await pathExists(binDir),
-      binPathMode: (await stat(binPath)).mode & 0o777,
-    }).toEqual({
-      result: binPath,
-      calls: [
-        {
-          commandLine: 'bash',
-          args: [
-            '-c',
-            `set -euo pipefail; curl -fsSL "${url}" | tar -xz -C "${binDir}"`,
-          ],
-        },
-      ],
-      addPathArgs: [[binDir]],
-      binDirExists: true,
-      binPathMode: 0o755,
-    })
+    binDir = join(fakeHome, '.local', 'bin')
+    binPath = join(binDir, 'mergiraf')
+    const fake = createFakeExec(binPath)
+    calls = fake.calls
+    result = await installMergiraf(fake.exec)
   })
 
-  it('rejects on unsupported platform without touching the filesystem or PATH', async () => {
-    stubPlatform('darwin', 'arm64')
-    const binDir = join(fakeHome, '.local', 'bin')
-    const binPath = join(binDir, 'mergiraf')
-    const { exec, calls } = createFakeExec(binPath)
+  it('returns the installed binary path', () => {
+    expect(result).toBe(binPath)
+  })
 
-    const result = await installMergiraf(exec).then(
-      (value) => ({ ok: true as const, value }),
-      (error: unknown) => ({
-        ok: false as const,
-        message: error instanceof Error ? error.message : String(error),
-      }),
-    )
+  it('marks the binary as executable', async () => {
+    const mode = (await stat(binPath)).mode & 0o777
+    expect(mode).toBe(0o755)
+  })
 
-    expect({
-      result,
-      calls,
-      addPathArgs: vi.mocked(addPath).mock.calls,
-      binDirExists: await pathExists(binDir),
-    }).toEqual({
-      result: {
-        ok: false,
-        message:
-          'mergiraf: unsupported platform darwin/arm64 (only linux/x64 is supported)',
+  it('prepends the bin directory to PATH', () => {
+    expect(vi.mocked(addPath).mock.calls).toEqual([[binDir]])
+  })
+
+  it('fetches the asset via curl piped into tar', () => {
+    const url = `https://codeberg.org/mergiraf/mergiraf/releases/download/${MERGIRAF_VERSION}/mergiraf_x86_64-unknown-linux-gnu.tar.gz`
+    expect(calls).toEqual([
+      {
+        commandLine: 'bash',
+        args: [
+          '-c',
+          `set -euo pipefail; curl -fsSL "${url}" | tar -xz -C "${binDir}"`,
+        ],
       },
-      calls: [],
-      addPathArgs: [],
-      binDirExists: false,
-    })
+    ])
+  })
+})
+
+describe('installMergiraf on an unsupported platform', () => {
+  beforeEach(() => {
+    stubPlatform('darwin', 'arm64')
+  })
+
+  const run = async (): Promise<string> => {
+    const binPath = join(fakeHome, '.local', 'bin', 'mergiraf')
+    const { exec } = createFakeExec(binPath)
+    try {
+      await installMergiraf(exec)
+      return ''
+    } catch (error) {
+      return error instanceof Error ? error.message : String(error)
+    }
+  }
+
+  it('rejects with a message naming the platform', async () => {
+    expect(await run()).toBe(
+      'mergiraf: unsupported platform darwin/arm64 (only linux/x64 is supported)',
+    )
+  })
+
+  it('does not create the bin directory', async () => {
+    await run()
+    expect(await pathExists(join(fakeHome, '.local', 'bin'))).toBe(false)
+  })
+
+  it('does not modify PATH', async () => {
+    await run()
+    expect(vi.mocked(addPath).mock.calls).toEqual([])
   })
 })
