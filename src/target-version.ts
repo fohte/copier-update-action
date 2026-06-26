@@ -39,5 +39,11 @@ export async function resolveTargetVersion(
     },
   )
 
-  return stdout.trim()
+  const resolved = stdout.trim()
+  if (resolved === '') {
+    throw new Error(
+      `Failed to resolve latest release tag for ${inputs.templateRepo}: gh returned empty output`,
+    )
+  }
+  return resolved
 }

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { type Exec, resolveTargetVersion } from '@/target-version'
 
@@ -6,46 +6,39 @@ interface NormalizedCall {
   commandLine: string
   args: string[] | undefined
   env: Record<string, string | undefined>
-  envMergesProcessEnv: boolean
-  hasStdoutListener: boolean
-  optionKeys: string[]
 }
 
+type ExecBehavior =
+  | { kind: 'ok'; exitCode: number; stdout?: string }
+  | { kind: 'reject'; error: Error }
+
 const recordingExec = (
-  behavior: (commandLine: string) => { exitCode: number; stdout?: string },
+  behavior: () => ExecBehavior,
 ): { exec: Exec; calls: NormalizedCall[] } => {
   const calls: NormalizedCall[] = []
   const exec: Exec = (commandLine, args, options) => {
     const env = options?.env ?? {}
-    const interestingEnvKeys = ['GH_TOKEN']
-    const reducedEnv: Record<string, string | undefined> = {}
-    for (const key of interestingEnvKeys) {
-      reducedEnv[key] = env[key]
-    }
-
     calls.push({
       commandLine,
       args,
-      env: reducedEnv,
-      envMergesProcessEnv:
-        process.env['PATH'] !== undefined &&
-        env['PATH'] === process.env['PATH'],
-      hasStdoutListener: typeof options?.listeners?.stdout === 'function',
-      optionKeys: options ? Object.keys(options).sort() : [],
+      env: { GH_TOKEN: env['GH_TOKEN'] },
     })
 
-    const { exitCode, stdout } = behavior(commandLine)
-    if (stdout !== undefined && options?.listeners?.stdout) {
-      options.listeners.stdout(Buffer.from(stdout))
+    const result = behavior()
+    if (result.kind === 'reject') {
+      return Promise.reject(result.error)
     }
-    return Promise.resolve(exitCode)
+    if (result.stdout !== undefined && options?.listeners?.stdout) {
+      options.listeners.stdout(Buffer.from(result.stdout))
+    }
+    return Promise.resolve(result.exitCode)
   }
   return { exec, calls }
 }
 
 describe('resolveTargetVersion', () => {
-  it('returns the input as-is when targetVersion is non-empty without invoking exec', async () => {
-    const { exec, calls } = recordingExec(() => ({ exitCode: 0 }))
+  it('returns the input as-is when targetVersion is non-empty and does not invoke exec', async () => {
+    const { exec, calls } = recordingExec(() => ({ kind: 'ok', exitCode: 0 }))
 
     const result = await resolveTargetVersion(
       {
@@ -64,6 +57,7 @@ describe('resolveTargetVersion', () => {
 
   it('resolves the latest tag via gh CLI and trims the trailing newline', async () => {
     const { exec, calls } = recordingExec(() => ({
+      kind: 'ok',
       exitCode: 0,
       stdout: 'v1.2.3\n',
     }))
@@ -93,17 +87,14 @@ describe('resolveTargetVersion', () => {
             '.tagName',
           ],
           env: { GH_TOKEN: 'token-abc' },
-          envMergesProcessEnv: true,
-          hasStdoutListener: true,
-          optionKeys: ['env', 'listeners'],
         },
       ],
     })
   })
 
-  it('throws when gh exits non-zero', async () => {
-    const error = new Error('gh: command failed with exit code 1')
-    const exec = vi.fn<Exec>().mockRejectedValue(error)
+  it('propagates the error when exec rejects', async () => {
+    const error = new Error('gh: command failed')
+    const { exec } = recordingExec(() => ({ kind: 'reject', error }))
 
     await expect(
       resolveTargetVersion(
@@ -115,5 +106,32 @@ describe('resolveTargetVersion', () => {
         exec,
       ),
     ).rejects.toBe(error)
+  })
+
+  it('throws when gh exits successfully with empty stdout', async () => {
+    const { exec } = recordingExec(() => ({
+      kind: 'ok',
+      exitCode: 0,
+      stdout: '',
+    }))
+
+    const captured = await resolveTargetVersion(
+      {
+        templateRepo: 'owner/repo',
+        targetVersion: '',
+        githubToken: 'token',
+      },
+      exec,
+    ).then(
+      (value) => ({ kind: 'resolved' as const, value }),
+      (error: unknown) => ({ kind: 'rejected' as const, error }),
+    )
+
+    expect(captured).toEqual({
+      kind: 'rejected',
+      error: new Error(
+        'Failed to resolve latest release tag for owner/repo: gh returned empty output',
+      ),
+    })
   })
 })
