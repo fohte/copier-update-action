@@ -17,6 +17,8 @@ export async function detectConflicts(exec: Exec): Promise<string[]> {
       'core.quotePath=false',
       'grep',
       '--untracked',
+      '-I',
+      '-F',
       '-lz',
       CONFLICT_MARKER,
     ],
