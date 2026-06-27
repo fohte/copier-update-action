@@ -1,0 +1,18 @@
+prelude
+<<<<<<< before updating
+A-before-1
+A-before-2
+||||||| ancestor
+A-anc
+=======
+A-theirs
+>>>>>>> updated
+middle
+<<<<<<< before updating
+B-before
+|||||||
+=======
+B-theirs-1
+B-theirs-2
+>>>>>>> updated
+tail
