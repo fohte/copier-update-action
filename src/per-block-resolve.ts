@@ -203,18 +203,27 @@ class MergirafSolver implements Solver {
 
   solve(input: string): string | null {
     const dir = mkdtempSync(join(tmpdir(), 'mergiraf-'))
-    const tmp = join(dir, 'conflict.txt')
-    writeFileSync(tmp, input)
     try {
-      execFileSync(this.bin, ['solve', tmp], { stdio: 'ignore' })
+      const tmp = join(dir, 'conflict.txt')
+      writeFileSync(tmp, input)
+      execFileSync(this.bin, ['solve', tmp], {
+        stdio: ['ignore', 'ignore', 'pipe'],
+      })
       const output = readFileSync(tmp, 'utf8')
       if (output.includes(START_MARKER)) {
         return null
       }
       return output
     } catch (err) {
+      const stderr =
+        err !== null && typeof err === 'object' && 'stderr' in err
+          ? String(err.stderr).trim()
+          : ''
+      const detail = err instanceof Error ? err.message : String(err)
       core.warning(
-        `mergiraf solve failed: ${err instanceof Error ? err.message : String(err)}`,
+        stderr === ''
+          ? `mergiraf solve failed: ${detail}`
+          : `mergiraf solve failed: ${detail}\n${stderr}`,
       )
       return null
     } finally {
