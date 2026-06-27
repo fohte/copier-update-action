@@ -72,7 +72,7 @@ describe('extractBlocks', () => {
       {
         startLine: 1,
         endLine: 8,
-        beforeText: 'ours-1\nours-2',
+        beforeLines: ['ours-1', 'ours-2'],
       },
     ])
   })
@@ -82,12 +82,12 @@ describe('extractBlocks', () => {
       {
         startLine: 1,
         endLine: 8,
-        beforeText: 'A-before-1\nA-before-2',
+        beforeLines: ['A-before-1', 'A-before-2'],
       },
       {
         startLine: 10,
         endLine: 16,
-        beforeText: 'B-before',
+        beforeLines: ['B-before'],
       },
     ])
   })
@@ -98,7 +98,7 @@ describe('extractBlocks', () => {
         {
           startLine: 3,
           endLine: 8,
-          beforeText: 'real-before',
+          beforeLines: ['real-before'],
         },
       ],
     )
@@ -106,6 +106,25 @@ describe('extractBlocks', () => {
 
   it('returns an empty array when there are no markers', () => {
     expect(extractBlocks(NO_CONFLICTS)).toEqual<Block[]>([])
+  })
+
+  it('preserves a single empty line in the before side', () => {
+    const text = `head
+<<<<<<< before updating
+
+|||||||
+=======
+theirs
+>>>>>>> updated
+tail
+`
+    expect(extractBlocks(text)).toEqual<Block[]>([
+      {
+        startLine: 1,
+        endLine: 6,
+        beforeLines: [''],
+      },
+    ])
   })
 })
 

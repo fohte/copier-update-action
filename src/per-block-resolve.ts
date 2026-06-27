@@ -10,8 +10,8 @@ export interface Block {
   startLine: number
   /** marker 終了行 (`>>>>>>> ...`, 0-indexed, inclusive) */
   endLine: number
-  /** "before updating" 側 (= 左側) のテキスト */
-  beforeText: string
+  /** "before updating" 側 (= 左側) のテキスト行 */
+  beforeLines: string[]
 }
 
 export interface ResolveResult {
@@ -34,10 +34,6 @@ function isAncestorMarker(line: string): boolean {
 
 function isEndMarker(line: string): boolean {
   return line === '>>>>>>>' || line.startsWith('>>>>>>> ')
-}
-
-function beforeTextToLines(beforeText: string): string[] {
-  return beforeText === '' ? [] : beforeText.split('\n')
 }
 
 export function extractBlocks(text: string): Block[] {
@@ -68,8 +64,8 @@ export function extractBlocks(text: string): Block[] {
       j++
     }
     if (midLine !== -1 && afterLine !== -1 && endLine !== -1) {
-      const beforeText = lines.slice(startLine + 1, midLine).join('\n')
-      blocks.push({ startLine, endLine, beforeText })
+      const beforeLines = lines.slice(startLine + 1, midLine)
+      blocks.push({ startLine, endLine, beforeLines })
       i = endLine + 1
     } else {
       i = startLine + 1
@@ -88,11 +84,7 @@ export function buildIsolatedInput(
     if (k === i) continue
     const b = blocks[k]
     if (b === undefined) continue
-    lines.splice(
-      b.startLine,
-      b.endLine - b.startLine + 1,
-      ...beforeTextToLines(b.beforeText),
-    )
+    lines.splice(b.startLine, b.endLine - b.startLine + 1, ...b.beforeLines)
   }
   return lines.join('\n')
 }
@@ -113,8 +105,7 @@ function extractResolvedSegment(
   const outputLines = output.split('\n')
   let shift = 0
   for (const b of precedingBlocks) {
-    const beforeLineCount = beforeTextToLines(b.beforeText).length
-    shift += b.endLine - b.startLine + 1 - beforeLineCount
+    shift += b.endLine - b.startLine + 1 - b.beforeLines.length
   }
   const blockStartInIsolated = block.startLine - shift
   const blockEndInIsolated = block.endLine - shift
@@ -215,6 +206,16 @@ class MergirafSolver implements Solver {
       }
       return output
     } catch (err) {
+      const status =
+        err !== null && typeof err === 'object' && 'status' in err
+          ? err.status
+          : undefined
+      if (status === 1) {
+        // Exit 1 = mergiraf could not resolve the conflict. This is the
+        // expected outcome for unresolvable blocks; do not raise a warning
+        // annotation for every such block.
+        return null
+      }
       const stderr =
         err !== null && typeof err === 'object' && 'stderr' in err
           ? String(err.stderr).trim()
