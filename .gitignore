@@ -89,8 +89,7 @@ out
 
 # Nuxt.js build / generate output
 .nuxt
-
-# `dist/` is committed as the bundled action distributable (see action.yml `main: dist/index.js`).
+dist
 
 # Gatsby files
 .cache/
