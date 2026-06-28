@@ -3,13 +3,10 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 import * as core from '@actions/core'
-import type { ExecOptions } from '@actions/exec'
 
-export type Exec = (
-  commandLine: string,
-  args?: string[],
-  options?: ExecOptions,
-) => Promise<number>
+import type { Exec } from '@/exec'
+
+export type { Exec } from '@/exec'
 
 // renovate: datasource=github-releases depName=mergiraf/mergiraf
 export const MERGIRAF_VERSION = 'v0.17.0'

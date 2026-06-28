@@ -36748,73 +36748,39 @@ async function resolveTargetVersion(inputs, getLatestRelease) {
 
 
 const defaultGetLatestReleaseFactory = (token) => ({ owner, repo }) => getOctokit(token).rest.repos.getLatestRelease({ owner, repo });
+async function withGroup(name, fn) {
+    startGroup(name);
+    try {
+        return await fn();
+    }
+    finally {
+        endGroup();
+    }
+}
 async function runWithDeps(deps) {
-    startGroup('Read inputs');
-    let inputs;
-    try {
-        inputs = deps.readInputs();
-        deps.validateInputs(inputs);
-    }
-    finally {
-        endGroup();
-    }
-    startGroup('Resolve target version');
-    let targetVersion;
-    try {
+    const inputs = await withGroup('Read inputs', () => {
+        const i = deps.readInputs();
+        deps.validateInputs(i);
+        return Promise.resolve(i);
+    });
+    const targetVersion = await withGroup('Resolve target version', async () => {
         const getLatestRelease = deps.getLatestReleaseFactory(inputs.githubToken);
-        targetVersion = await deps.resolveTargetVersion(inputs, getLatestRelease);
-        setOutput('target-version', targetVersion);
-    }
-    finally {
-        endGroup();
-    }
-    startGroup('Install mergiraf');
-    let mergirafBin;
-    try {
-        mergirafBin = await deps.installMergiraf(deps.exec);
-    }
-    finally {
-        endGroup();
-    }
-    startGroup('Configure git diff3');
-    try {
-        await deps.configureDiff3(deps.exec);
-    }
-    finally {
-        endGroup();
-    }
-    startGroup('Run copier update');
-    try {
-        await deps.runCopierUpdate({ targetVersion, copierVersion: inputs.copierVersion }, deps.exec);
-    }
-    finally {
-        endGroup();
-    }
-    startGroup('Detect conflicts');
-    let conflictFiles;
-    try {
-        conflictFiles = await deps.detectConflicts(deps.exec);
-        info(`detected ${String(conflictFiles.length)} conflict file(s)`);
-    }
-    finally {
-        endGroup();
-    }
+        const v = await deps.resolveTargetVersion(inputs, getLatestRelease);
+        setOutput('target-version', v);
+        return v;
+    });
+    const mergirafBin = await withGroup('Install mergiraf', () => deps.installMergiraf(deps.exec));
+    await withGroup('Configure git diff3', () => deps.configureDiff3(deps.exec));
+    await withGroup('Run copier update', () => deps.runCopierUpdate({ targetVersion, copierVersion: inputs.copierVersion }, deps.exec));
+    const conflictFiles = await withGroup('Detect conflicts', async () => {
+        const files = await deps.detectConflicts(deps.exec);
+        info(`detected ${String(files.length)} conflict file(s)`);
+        return files;
+    });
     if (conflictFiles.length > 0) {
-        startGroup('Resolve conflicts');
-        try {
-            await deps.resolveConflicts(conflictFiles, mergirafBin);
-        }
-        finally {
-            endGroup();
-        }
+        await withGroup('Resolve conflicts', () => deps.resolveConflicts(conflictFiles, mergirafBin));
     }
-    startGroup('Write outputs');
-    try {
-        await deps.writeOutputs(deps.exec);
-    }
-    finally {
-        endGroup();
-    }
+    await withGroup('Write outputs', () => deps.writeOutputs(deps.exec));
 }
 async function run(exec) {
     await runWithDeps({
