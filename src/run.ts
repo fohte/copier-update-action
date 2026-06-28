@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-import { exec as actionsExec } from '@actions/exec'
+import { exec as actionsExec, type ExecOptions } from '@actions/exec'
 import { getOctokit } from '@actions/github'
 
 import { detectConflicts as defaultDetectConflicts } from '@/conflicts'
@@ -7,7 +7,6 @@ import {
   configureDiff3 as defaultConfigureDiff3,
   runCopierUpdate as defaultRunCopierUpdate,
 } from '@/copier'
-import type { Exec } from '@/exec'
 import {
   type Inputs,
   readInputs as defaultReadInputs,
@@ -21,7 +20,11 @@ import {
   resolveTargetVersion as defaultResolveTargetVersion,
 } from '@/target-version'
 
-export type { Exec } from '@/exec'
+export type Exec = (
+  commandLine: string,
+  args?: string[],
+  options?: ExecOptions,
+) => Promise<number>
 
 export interface RunDeps {
   exec: Exec
@@ -48,55 +51,75 @@ const defaultGetLatestReleaseFactory =
   ({ owner, repo }) =>
     getOctokit(token).rest.repos.getLatestRelease({ owner, repo })
 
-async function withGroup<T>(name: string, fn: () => Promise<T>): Promise<T> {
-  core.startGroup(name)
+export async function runWithDeps(deps: RunDeps): Promise<void> {
+  core.startGroup('Read inputs')
+  let inputs: Inputs
   try {
-    return await fn()
+    inputs = deps.readInputs()
+    deps.validateInputs(inputs)
   } finally {
     core.endGroup()
   }
-}
 
-export async function runWithDeps(deps: RunDeps): Promise<void> {
-  const inputs = await withGroup('Read inputs', () => {
-    const i = deps.readInputs()
-    deps.validateInputs(i)
-    return Promise.resolve(i)
-  })
-
-  const targetVersion = await withGroup('Resolve target version', async () => {
+  core.startGroup('Resolve target version')
+  let targetVersion: string
+  try {
     const getLatestRelease = deps.getLatestReleaseFactory(inputs.githubToken)
-    const v = await deps.resolveTargetVersion(inputs, getLatestRelease)
-    core.setOutput('target-version', v)
-    return v
-  })
-
-  const mergirafBin = await withGroup('Install mergiraf', () =>
-    deps.installMergiraf(deps.exec),
-  )
-
-  await withGroup('Configure git diff3', () => deps.configureDiff3(deps.exec))
-
-  await withGroup('Run copier update', () =>
-    deps.runCopierUpdate(
-      { targetVersion, copierVersion: inputs.copierVersion },
-      deps.exec,
-    ),
-  )
-
-  const conflictFiles = await withGroup('Detect conflicts', async () => {
-    const files = await deps.detectConflicts(deps.exec)
-    core.info(`detected ${String(files.length)} conflict file(s)`)
-    return files
-  })
-
-  if (conflictFiles.length > 0) {
-    await withGroup('Resolve conflicts', () =>
-      deps.resolveConflicts(conflictFiles, mergirafBin),
-    )
+    targetVersion = await deps.resolveTargetVersion(inputs, getLatestRelease)
+    core.setOutput('target-version', targetVersion)
+  } finally {
+    core.endGroup()
   }
 
-  await withGroup('Write outputs', () => deps.writeOutputs(deps.exec))
+  core.startGroup('Install mergiraf')
+  let mergirafBin: string
+  try {
+    mergirafBin = await deps.installMergiraf(deps.exec)
+  } finally {
+    core.endGroup()
+  }
+
+  core.startGroup('Configure git diff3')
+  try {
+    await deps.configureDiff3(deps.exec)
+  } finally {
+    core.endGroup()
+  }
+
+  core.startGroup('Run copier update')
+  try {
+    await deps.runCopierUpdate(
+      { targetVersion, copierVersion: inputs.copierVersion },
+      deps.exec,
+    )
+  } finally {
+    core.endGroup()
+  }
+
+  core.startGroup('Detect conflicts')
+  let conflictFiles: string[]
+  try {
+    conflictFiles = await deps.detectConflicts(deps.exec)
+    core.info(`detected ${String(conflictFiles.length)} conflict file(s)`)
+  } finally {
+    core.endGroup()
+  }
+
+  if (conflictFiles.length > 0) {
+    core.startGroup('Resolve conflicts')
+    try {
+      await deps.resolveConflicts(conflictFiles, mergirafBin)
+    } finally {
+      core.endGroup()
+    }
+  }
+
+  core.startGroup('Write outputs')
+  try {
+    await deps.writeOutputs(deps.exec)
+  } finally {
+    core.endGroup()
+  }
 }
 
 export async function run(exec?: Exec): Promise<void> {

@@ -1,9 +1,13 @@
 import * as core from '@actions/core'
+import type { ExecOptions } from '@actions/exec'
 
 import { detectConflicts } from '@/conflicts'
-import type { Exec } from '@/exec'
 
-export type { Exec } from '@/exec'
+export type Exec = (
+  commandLine: string,
+  args?: string[],
+  options?: ExecOptions,
+) => Promise<number>
 
 export async function writeOutputs(exec: Exec): Promise<void> {
   const diffExitCode = await exec('git', ['diff', '--quiet', 'HEAD', '--'], {
