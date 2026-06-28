@@ -1,0 +1,10 @@
+docs about conflicts:
+the start marker is "<<<<<<< before updating" but this line is just text
+and "=======" inline does not count either
+<<<<<<< before updating
+real-before
+|||||||
+=======
+real-theirs
+>>>>>>> updated
+end of file
