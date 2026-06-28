@@ -6,11 +6,11 @@ import { join } from 'node:path'
 import * as core from '@actions/core'
 
 export interface Block {
-  /** marker 開始行 (`<<<<<<< before updating`, 0-indexed) */
+  /** Start marker line (`<<<<<<< before updating`, 0-indexed) */
   startLine: number
-  /** marker 終了行 (`>>>>>>> ...`, 0-indexed, inclusive) */
+  /** End marker line (`>>>>>>> ...`, 0-indexed, inclusive) */
   endLine: number
-  /** "before updating" 側 (= 左側) のテキスト行 */
+  /** Lines on the "before updating" side (= left side) */
   beforeLines: string[]
 }
 
@@ -21,7 +21,7 @@ export interface ResolveResult {
 }
 
 export interface Solver {
-  /** 入力テキストを mergiraf solve に通し、解消結果を返す。失敗時は null。 */
+  /** Run the input text through `mergiraf solve` and return the resolved text, or null on failure. */
   solve(input: string): string | null
 }
 
