@@ -6,15 +6,26 @@ import type { Exec } from '@/exec'
 export type { Exec } from '@/exec'
 
 export async function writeOutputs(exec: Exec): Promise<void> {
-  const diffExitCode = await exec('git', ['diff', '--quiet', 'HEAD', '--'], {
-    ignoreReturnCode: true,
-  })
-  if (diffExitCode !== 0 && diffExitCode !== 1) {
+  const chunks: Buffer[] = []
+  const statusExitCode = await exec(
+    'git',
+    ['status', '--porcelain', '-z', '--untracked-files=all'],
+    {
+      ignoreReturnCode: true,
+      listeners: {
+        stdout: (data: Buffer) => {
+          chunks.push(data)
+        },
+      },
+    },
+  )
+  if (statusExitCode !== 0) {
     throw new Error(
-      `git diff --quiet HEAD -- failed with exit code ${String(diffExitCode)}`,
+      `git status --porcelain failed with exit code ${String(statusExitCode)}`,
     )
   }
-  core.setOutput('changed', diffExitCode === 1 ? 'true' : 'false')
+  const changed = Buffer.concat(chunks).length > 0
+  core.setOutput('changed', changed ? 'true' : 'false')
 
   const unresolved = await detectConflicts(exec)
   core.setOutput('unresolved-files', unresolved.join('\n'))

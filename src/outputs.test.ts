@@ -90,10 +90,22 @@ afterEach(() => {
   rmSync(tmpDir, { recursive: true, force: true })
 })
 
+const STATUS_ARGS = ['status', '--porcelain', '-z', '--untracked-files=all']
+const GREP_ARGS = [
+  '-c',
+  'core.quotePath=false',
+  'grep',
+  '--untracked',
+  '-I',
+  '-F',
+  '-lz',
+  '<<<<<<< before updating',
+]
+
 describe('writeOutputs', () => {
   it('emits changed=false and empty unresolved-files when no diff and no conflicts', async () => {
     const { exec, calls } = recordingExec([
-      { exitCode: 0 },
+      { exitCode: 0, stdout: Buffer.from('') },
       { exitCode: 1, stdout: Buffer.from('') },
     ])
 
@@ -103,21 +115,12 @@ describe('writeOutputs', () => {
       calls: [
         {
           commandLine: 'git',
-          args: ['diff', '--quiet', 'HEAD', '--'],
+          args: STATUS_ARGS,
           ignoreReturnCode: true,
         },
         {
           commandLine: 'git',
-          args: [
-            '-c',
-            'core.quotePath=false',
-            'grep',
-            '--untracked',
-            '-I',
-            '-F',
-            '-lz',
-            '<<<<<<< before updating',
-          ],
+          args: GREP_ARGS,
           ignoreReturnCode: true,
         },
       ],
@@ -128,9 +131,23 @@ describe('writeOutputs', () => {
     })
   })
 
+  it('emits changed=true when only untracked files are added (no tracked diff)', async () => {
+    const { exec } = recordingExec([
+      { exitCode: 0, stdout: Buffer.from('?? new-file.txt\0') },
+      { exitCode: 1, stdout: Buffer.from('') },
+    ])
+
+    await writeOutputs(exec)
+
+    expect(parseGithubOutput(outputPath)).toEqual([
+      { name: 'changed', value: 'true' },
+      { name: 'unresolved-files', value: '' },
+    ])
+  })
+
   it('emits changed=true and joins unresolved files with newlines', async () => {
     const { exec } = recordingExec([
-      { exitCode: 1 },
+      { exitCode: 0, stdout: Buffer.from(' M a.txt\0') },
       { exitCode: 0, stdout: Buffer.from('a.txt\0sub/b.txt\0') },
     ])
 
@@ -142,11 +159,11 @@ describe('writeOutputs', () => {
     ])
   })
 
-  it('throws when git diff exits with an unexpected code', async () => {
+  it('throws when git status exits with a non-zero code', async () => {
     const exec: Exec = () => Promise.resolve(128)
 
     await expect(writeOutputs(exec)).rejects.toEqual(
-      new Error('git diff --quiet HEAD -- failed with exit code 128'),
+      new Error('git status --porcelain failed with exit code 128'),
     )
   })
 })
