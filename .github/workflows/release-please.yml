@@ -85,7 +85,7 @@ jobs:
 
       - run: pnpm build
 
-      - name: Amend release commit with dist/ and force-push tag
+      - name: Amend release commit with dist/ and force-push version tag
         env:
           TAG: ${{ needs.release-please.outputs.tag_name }}
         run: |
@@ -104,9 +104,15 @@ jobs:
           git tag -f "${TAG}"
           git push --force origin "refs/tags/${TAG}"
 
-          # Compute floating major tag (`v<X>`) and force-move it to the same
-          # sha so `uses: ...@v<X>` consumers also resolve to a dist-included
-          # commit.
+      # SemVer prereleases (`vX.Y.Z-rc.1` etc.) must not advance the floating
+      # major tag — `@v1` is documented as the stable channel. Step kept
+      # separate from the version-tag push so failures here surface in the
+      # Actions UI as their own step.
+      - name: Force-move floating major tag
+        if: ${{ !contains(needs.release-please.outputs.tag_name, '-') }}
+        env:
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+        run: |
           version="${TAG#v}"
           major_tag="v${version%%.*}"
           git tag -f "$major_tag"
