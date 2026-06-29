@@ -1,10 +1,6 @@
-import type { ExecOptions } from '@actions/exec'
+import type { Exec } from '@/exec'
 
-export type Exec = (
-  commandLine: string,
-  args?: string[],
-  options?: ExecOptions,
-) => Promise<number>
+export type { Exec } from '@/exec'
 
 const CONFLICT_MARKER = '<<<<<<< before updating'
 
