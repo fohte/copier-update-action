@@ -11,6 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
+    outputs:
+      releases_created: ${{ steps.release.outputs.releases_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - uses: octo-sts/action@f603d3be9d8dd9871a265776e625a27b00effe05 # v1.1.1
         id: octo-sts
@@ -25,3 +28,92 @@ jobs:
           token: ${{ steps.octo-sts.outputs.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  # Amends the just-created release commit with the built `dist/` bundle,
+  # force-pushes the tag to the new sha, and force-moves the floating major
+  # tag (e.g. `v1`) to the same sha. `dist/` stays in `.gitignore` so it never
+  # lands on main; the commit a caller resolves via
+  # `uses: fohte/copier-update-action@vX.Y.Z` (or `@v1`) is the only place the
+  # bundle appears, which is what `runs.main: dist/index.js` expects.
+  #
+  # Note: the GitHub Release object's `target_commitish` is set at publish
+  # time by release-please and cannot be updated for a non-draft release, so
+  # the "View commit" link in the Release UI keeps pointing at the
+  # pre-amend (dist-less) commit. Tag resolution (`@vX.Y.Z` / `@<sha>` via
+  # `git ls-remote`) is unaffected and resolves to the dist-included commit,
+  # which is what GitHub Actions and Renovate-style sha pinning use.
+  attach-dist:
+    needs: release-please
+    if: needs.release-please.outputs.releases_created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: octo-sts/action@f603d3be9d8dd9871a265776e625a27b00effe05 # v1.1.1
+        id: octo-sts
+        with:
+          scope: fohte
+          identity: ${{ github.event.repository.name }}-release-please
+          domain: octo-sts.fohte.net
+
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+          token: ${{ steps.octo-sts.outputs.token }}
+          persist-credentials: true
+          fetch-depth: 0
+
+      - uses: jdx/mise-action@dba19683ed58901619b14f395a24841710cb4925 # v4.1.0
+        with:
+          version: 2026.6.12
+
+      - run: corepack enable
+
+      - name: Get pnpm store directory
+        id: pnpm-store
+        run: echo "path=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: |
+            ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-store-
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+
+      - name: Amend release commit with dist/ and force-push version tag
+        env:
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+        run: |
+          git config user.name 'fohte-bot[bot]'
+          git config user.email '139195068+fohte-bot[bot]@users.noreply.github.com'
+          # `dist/` is gitignored, so force-add the built bundle.
+          git add -f dist/
+          # Guard against a silent empty amend that would move the tag to a
+          # new sha that does not contain `dist/`.
+          test -s dist/index.js
+          if git diff --cached --quiet; then
+            echo "no dist/ changes staged; refusing to amend" >&2
+            exit 1
+          fi
+          git commit --amend --no-edit
+          git tag -f "${TAG}"
+          git push --force origin "refs/tags/${TAG}"
+
+      # SemVer prereleases (`vX.Y.Z-rc.1` etc.) must not advance the floating
+      # major tag — `@v1` is documented as the stable channel. Step kept
+      # separate from the version-tag push so failures here surface in the
+      # Actions UI as their own step.
+      - name: Force-move floating major tag
+        if: ${{ !contains(needs.release-please.outputs.tag_name, '-') }}
+        env:
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+        run: |
+          version="${TAG#v}"
+          major_tag="v${version%%.*}"
+          git tag -f "$major_tag"
+          git push --force origin "refs/tags/${major_tag}"
