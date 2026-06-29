@@ -120,3 +120,9 @@ jobs:
 
       - name: Run tests
         run: pnpm run test
+
+      # Verifies the action bundle still builds. `dist/` is gitignored and
+      # the artifact is discarded on normal PRs; the actual commit of `dist/`
+      # happens in .github/workflows/release-please.yml on release.
+      - name: Verify bundle builds
+        run: pnpm build

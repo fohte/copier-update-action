@@ -115,7 +115,7 @@ The action intentionally does **not** do any of the following. The caller workfl
 
 ## Development
 
-This is a JavaScript action. Source lives under `src/`; the bundled `dist/index.js` (built with [`@vercel/ncc`](https://github.com/vercel/ncc)) is committed so `runs.using: node24` can load it directly. CI verifies `dist/` is in sync with `src/` on every PR.
+This is a JavaScript action. Source lives under `src/`; the bundled `dist/index.js` (built with [`@vercel/ncc`](https://github.com/vercel/ncc)) is gitignored on `main` and attached only to release tags (`vX.Y.Z` and the floating `vN`) by `.github/workflows/release-please.yml`, so `runs.using: node24` can load it from any released ref. Pull requests verify the bundle still builds; pin to a release tag rather than `main` when consuming the action.
 
 ```bash
 pnpm install
