@@ -89,8 +89,8 @@ jobs:
         env:
           TAG: ${{ needs.release-please.outputs.tag_name }}
         run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.name 'fohte-bot[bot]'
+          git config user.email '139195068+fohte-bot[bot]@users.noreply.github.com'
           # `dist/` is gitignored, so force-add the built bundle.
           git add -f dist/
           # Guard against a silent empty amend that would move the tag to a
