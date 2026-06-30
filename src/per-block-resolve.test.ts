@@ -44,7 +44,7 @@ done
 
 interface RecordedCall {
   input: string
-  fileExtension: string
+  filename: string
 }
 
 function recordingSolver(responses: (string | null)[]): {
@@ -56,13 +56,13 @@ function recordingSolver(responses: (string | null)[]): {
   return {
     calls,
     solver: {
-      solve(input, fileExtension) {
+      solve(input, filename) {
         if (i >= responses.length) {
           throw new Error(
             `unexpected solver.solve call #${String(i + 1)} (only ${String(responses.length)} responses configured)`,
           )
         }
-        calls.push({ input, fileExtension })
+        calls.push({ input, filename })
         const response = responses[i] ?? null
         i++
         return response
@@ -270,11 +270,11 @@ tail
     expect(calls).toEqual<RecordedCall[]>([
       {
         input: buildIsolatedInput(text, extractBlocks(text), 0),
-        fileExtension: '.txt',
+        filename: 'conflict.txt',
       },
       {
         input: buildIsolatedInput(text, extractBlocks(text), 1),
-        fileExtension: '.txt',
+        filename: 'conflict.txt',
       },
     ])
   })
