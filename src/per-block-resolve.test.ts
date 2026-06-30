@@ -42,22 +42,27 @@ no markers here
 done
 `
 
+interface RecordedCall {
+  input: string
+  filename: string
+}
+
 function recordingSolver(responses: (string | null)[]): {
   solver: Solver
-  calls: string[]
+  calls: RecordedCall[]
 } {
-  const calls: string[] = []
+  const calls: RecordedCall[] = []
   let i = 0
   return {
     calls,
     solver: {
-      solve(input) {
+      solve(input, filename) {
         if (i >= responses.length) {
           throw new Error(
             `unexpected solver.solve call #${String(i + 1)} (only ${String(responses.length)} responses configured)`,
           )
         }
-        calls.push(input)
+        calls.push({ input, filename })
         const response = responses[i] ?? null
         i++
         return response
@@ -262,9 +267,15 @@ RESOLVED-1
 tail
 `,
     )
-    expect(calls).toEqual([
-      buildIsolatedInput(text, extractBlocks(text), 0),
-      buildIsolatedInput(text, extractBlocks(text), 1),
+    expect(calls).toEqual<RecordedCall[]>([
+      {
+        input: buildIsolatedInput(text, extractBlocks(text), 0),
+        filename: 'conflict.txt',
+      },
+      {
+        input: buildIsolatedInput(text, extractBlocks(text), 1),
+        filename: 'conflict.txt',
+      },
     ])
   })
 

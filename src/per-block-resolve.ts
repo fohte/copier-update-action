@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 
 import * as core from '@actions/core'
 
@@ -21,8 +21,14 @@ export interface ResolveResult {
 }
 
 export interface Solver {
-  /** Run the input text through `mergiraf solve` and return the resolved text, or null on failure. */
-  solve(input: string): string | null
+  /**
+   * Run the input text through `mergiraf solve` and return the resolved text,
+   * or null on failure.
+   *
+   * `filename` (e.g. `package.json`, `Dockerfile`) is forwarded so mergiraf
+   * can pick the right structured parser by extension or well-known name.
+   */
+  solve(input: string, filename: string): string | null
 }
 
 const START_MARKER = '<<<<<<< before updating'
@@ -136,6 +142,7 @@ export function resolveFile(filePath: string, solver: Solver): ResolveResult {
     return { resolved: true, resolvedCount: 0, skippedCount: 0 }
   }
 
+  const filename = basename(filePath)
   const solved: SolvedSegment[] = []
   let resolvedCount = 0
   let skippedCount = 0
@@ -144,7 +151,7 @@ export function resolveFile(filePath: string, solver: Solver): ResolveResult {
     const block = blocks[i]
     if (block === undefined) continue
     const isolated = buildIsolatedInput(text, blocks, i)
-    const output = solver.solve(isolated)
+    const output = solver.solve(isolated, filename)
     if (output === null) {
       core.info(`block ${String(i + 1)}/${String(blocks.length)}: skipped`)
       skippedCount++
@@ -192,10 +199,14 @@ export function resolveFile(filePath: string, solver: Solver): ResolveResult {
 class MergirafSolver implements Solver {
   constructor(private readonly bin: string) {}
 
-  solve(input: string): string | null {
+  solve(input: string, filename: string): string | null {
     const dir = mkdtempSync(join(tmpdir(), 'mergiraf-'))
     try {
-      const tmp = join(dir, 'conflict.txt')
+      // mergiraf picks its structured parser from the file extension or
+      // well-known basename (e.g. `Dockerfile`); without a recognized name it
+      // falls back to a line-based merge that leaves trivially resolvable
+      // blocks marker-intact.
+      const tmp = join(dir, filename)
       writeFileSync(tmp, input)
       execFileSync(this.bin, ['solve', tmp], {
         stdio: ['ignore', 'ignore', 'pipe'],
