@@ -6,6 +6,13 @@ on:
 
 name: release-please
 
+# Serialize release-please runs on the same branch. Cancelling in-flight
+# releases could leave a release commit on main without a matching tag,
+# so wait rather than cancel.
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release-please:
     runs-on: ubuntu-latest
@@ -29,19 +36,20 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  # Amends the just-created release commit with the built `dist/` bundle,
-  # force-pushes the tag to the new sha, and force-moves the floating major
-  # tag (e.g. `v1`) to the same sha. `dist/` stays in `.gitignore` so it never
-  # lands on main; the commit a caller resolves via
-  # `uses: fohte/copier-update-action@vX.Y.Z` (or `@v1`) is the only place the
-  # bundle appears, which is what `runs.main: dist/index.js` expects.
+  # Adds a follow-up commit on main that force-adds the built `dist/` bundle,
+  # then moves the version tag (and, for stable releases, the floating major
+  # tag) from the release commit onto that dist commit.
   #
-  # Note: the GitHub Release object's `target_commitish` is set at publish
-  # time by release-please and cannot be updated for a non-draft release, so
-  # the "View commit" link in the Release UI keeps pointing at the
-  # pre-amend (dist-less) commit. Tag resolution (`@vX.Y.Z` / `@<sha>` via
-  # `git ls-remote`) is unaffected and resolves to the dist-included commit,
-  # which is what GitHub Actions and Renovate-style sha pinning use.
+  # The version tag must live on a commit reachable from main: release-please
+  # walks history from the default branch's tip back to the most recent
+  # release tag to decide "what's the last released version". A tag on an
+  # unreachable commit makes release-please treat every commit since the
+  # previous reachable tag — including the release commit itself — as
+  # unreleased, and the next release PR silently reuses the current version.
+  #
+  # Between releases the tracked `dist/` files on main are stale. Callers
+  # resolve `uses: fohte/copier-update-action@vX.Y.Z` (or `@v1`) to the
+  # tagged commit, not to main's tip.
   attach-dist:
     needs: release-please
     if: needs.release-please.outputs.releases_created == 'true'
@@ -56,9 +64,13 @@ jobs:
           identity: ${{ github.event.repository.name }}-release-please
           domain: octo-sts.fohte.net
 
+      # Check out the default branch, not the release tag. release-please
+      # has already pushed the release commit to main by the time this job
+      # runs (`needs: release-please`), so main's tip is that commit and
+      # the new dist commit will land directly on top of it.
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
-          ref: ${{ needs.release-please.outputs.tag_name }}
+          ref: ${{ github.ref_name }}
           token: ${{ steps.octo-sts.outputs.token }}
           persist-credentials: true
           fetch-depth: 0
@@ -85,35 +97,45 @@ jobs:
 
       - run: pnpm build
 
-      - name: Amend release commit with dist/ and force-push version tag
+      - name: Commit dist/ to main and move release tags onto it
         env:
           TAG: ${{ needs.release-please.outputs.tag_name }}
+          BRANCH: ${{ github.ref_name }}
+          # main tip at checkout time. Used as the lease for the branch
+          # push so we fail-fast instead of overwriting any commit that
+          # landed on main during `pnpm install` / `pnpm build`.
+          BASE_SHA: ${{ github.sha }}
         run: |
           git config user.name 'fohte-bot[bot]'
           git config user.email '139195068+fohte-bot[bot]@users.noreply.github.com'
           # `dist/` is gitignored, so force-add the built bundle.
           git add -f dist/
-          # Guard against a silent empty amend that would move the tag to a
-          # new sha that does not contain `dist/`.
+          # Guard against a silent empty commit that would move the tag to a
+          # commit not containing `dist/`.
           test -s dist/index.js
           if git diff --cached --quiet; then
-            echo "no dist/ changes staged; refusing to amend" >&2
+            echo "no dist/ changes staged; refusing to commit" >&2
             exit 1
           fi
-          git commit --amend --no-edit
+          git commit -m "chore(release): attach dist/ for ${TAG}"
+          # release-please created ${TAG} at the release commit; move it
+          # forward one commit to the dist commit we just built.
           git tag -f "${TAG}"
-          git push --force origin "refs/tags/${TAG}"
-
-      # SemVer prereleases (`vX.Y.Z-rc.1` etc.) must not advance the floating
-      # major tag — `@v1` is documented as the stable channel. Step kept
-      # separate from the version-tag push so failures here surface in the
-      # Actions UI as their own step.
-      - name: Force-move floating major tag
-        if: ${{ !contains(needs.release-please.outputs.tag_name, '-') }}
-        env:
-          TAG: ${{ needs.release-please.outputs.tag_name }}
-        run: |
-          version="${TAG#v}"
-          major_tag="v${version%%.*}"
-          git tag -f "$major_tag"
-          git push --force origin "refs/tags/${major_tag}"
+          # SemVer prereleases (`vX.Y.Z-rc.1` etc.) must not advance the
+          # floating major tag — `@v1` is documented as the stable channel.
+          # `+refs/tags/...` forces the tag move per-ref.
+          tag_refs=("+refs/tags/${TAG}")
+          if [[ "${TAG}" != *-* ]]; then
+            version="${TAG#v}"
+            major_tag="v${version%%.*}"
+            git tag -f "${major_tag}"
+            tag_refs+=("+refs/tags/${major_tag}")
+          fi
+          # `--atomic` makes branch + tag(s) succeed or fail together, so
+          # the remote never has main advanced without the tag also moved.
+          # `--force-with-lease` on the branch fails-fast if another push
+          # landed on main between checkout and here.
+          git push --atomic origin \
+            "--force-with-lease=refs/heads/${BRANCH}:${BASE_SHA}" \
+            "HEAD:refs/heads/${BRANCH}" \
+            "${tag_refs[@]}"
