@@ -47,14 +47,9 @@ jobs:
   # previous reachable tag — including the release commit itself — as
   # unreleased, and the next release PR silently reuses the current version.
   #
-  # Between releases, the tracked `dist/` files sit stale on main. That is
-  # intentional — callers resolve `uses: fohte/copier-update-action@vX.Y.Z`
-  # (or `@v1`) to the tagged commit, not to main's tip.
-  #
-  # This job push-force-updates a tag and pushes a new commit directly to
-  # the default branch. If branch protection ever gates main, the identity
-  # backing `steps.octo-sts.outputs.token` (`fohte-bot[bot]`) needs a
-  # bypass rule for both.
+  # Between releases the tracked `dist/` files on main are stale. Callers
+  # resolve `uses: fohte/copier-update-action@vX.Y.Z` (or `@v1`) to the
+  # tagged commit, not to main's tip.
   attach-dist:
     needs: release-please
     if: needs.release-please.outputs.releases_created == 'true'
@@ -102,10 +97,14 @@ jobs:
 
       - run: pnpm build
 
-      - name: Commit dist/ to main and move version tag onto it
+      - name: Commit dist/ to main and move release tags onto it
         env:
           TAG: ${{ needs.release-please.outputs.tag_name }}
           BRANCH: ${{ github.ref_name }}
+          # main tip at checkout time. Used as the lease for the branch
+          # push so we fail-fast instead of overwriting any commit that
+          # landed on main during `pnpm install` / `pnpm build`.
+          BASE_SHA: ${{ github.sha }}
         run: |
           git config user.name 'fohte-bot[bot]'
           git config user.email '139195068+fohte-bot[bot]@users.noreply.github.com'
@@ -122,23 +121,21 @@ jobs:
           # release-please created ${TAG} at the release commit; move it
           # forward one commit to the dist commit we just built.
           git tag -f "${TAG}"
-          # Push the new commit and the relocated tag atomically so the
-          # remote never sees main advanced without the tag also moved
-          # (or vice versa).
-          git push --atomic --force origin \
+          # SemVer prereleases (`vX.Y.Z-rc.1` etc.) must not advance the
+          # floating major tag — `@v1` is documented as the stable channel.
+          # `+refs/tags/...` forces the tag move per-ref.
+          tag_refs=("+refs/tags/${TAG}")
+          if [[ "${TAG}" != *-* ]]; then
+            version="${TAG#v}"
+            major_tag="v${version%%.*}"
+            git tag -f "${major_tag}"
+            tag_refs+=("+refs/tags/${major_tag}")
+          fi
+          # `--atomic` makes branch + tag(s) succeed or fail together, so
+          # the remote never has main advanced without the tag also moved.
+          # `--force-with-lease` on the branch fails-fast if another push
+          # landed on main between checkout and here.
+          git push --atomic origin \
+            "--force-with-lease=refs/heads/${BRANCH}:${BASE_SHA}" \
             "HEAD:refs/heads/${BRANCH}" \
-            "refs/tags/${TAG}"
-
-      # SemVer prereleases (`vX.Y.Z-rc.1` etc.) must not advance the floating
-      # major tag — `@v1` is documented as the stable channel. Step kept
-      # separate from the version-tag push so failures here surface in the
-      # Actions UI as their own step.
-      - name: Force-move floating major tag
-        if: ${{ !contains(needs.release-please.outputs.tag_name, '-') }}
-        env:
-          TAG: ${{ needs.release-please.outputs.tag_name }}
-        run: |
-          version="${TAG#v}"
-          major_tag="v${version%%.*}"
-          git tag -f "$major_tag"
-          git push --force origin "refs/tags/${major_tag}"
+            "${tag_refs[@]}"
