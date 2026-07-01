@@ -14,24 +14,10 @@ import { resolveConflicts } from '@/per-block-resolve'
 // line-based merging, which leaves every block unresolved.
 const JSON_WITH_TWO_IDENTICAL_BUMP_BLOCKS = `{
   "name": "demo",
-<<<<<<< before updating
   "version": "2.0.0",
-||||||| ancestor
-  "version": "1.0.0",
-=======
-  "version": "2.0.0",
->>>>>>> updated
   "dependencies": {
-<<<<<<< before updating
     "@types/node": "24.13.2",
     "vitest": "4.1.9"
-||||||| ancestor
-    "@types/node": "24.10.0",
-    "vitest": "4.1.5"
-=======
-    "@types/node": "24.13.2",
-    "vitest": "4.1.9"
->>>>>>> updated
   }
 }
 `

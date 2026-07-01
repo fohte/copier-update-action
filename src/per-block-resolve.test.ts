@@ -117,7 +117,7 @@ describe('extractBlocks', () => {
     const text = `head
 <<<<<<< before updating
 
-|||||||
+||||||| ancestor
 =======
 theirs
 >>>>>>> updated
@@ -169,7 +169,7 @@ A-before-2
 middle
 <<<<<<< before updating
 B-before
-|||||||
+||||||| ancestor
 =======
 B-theirs-1
 B-theirs-2
