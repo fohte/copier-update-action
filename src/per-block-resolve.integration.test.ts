@@ -7,36 +7,38 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { resolveConflicts } from '@/per-block-resolve'
 
-// When a copier-updated file has multiple conflict blocks where both sides
-// bumped to the same new value, mergiraf's structured parser should auto-resolve
-// each block. It only does so when it can identify the source language from
-// the file extension; a generic `.txt` temp file silently falls back to
-// line-based merging, which leaves every block unresolved.
-const JSON_WITH_TWO_IDENTICAL_BUMP_BLOCKS = `{
+// Every input uses copier's real conflict-marker labels
+// (`<<<<<<< before updating` / `||||||| last update` / `=======` /
+// `>>>>>>> after updating`). Mergiraf ignores blocks whose labels it does not
+// recognize, so a label-recognition regression would fail the resolvable-case
+// tests (fully / partial) while leaving the unchanged-file tests passing
+// spuriously — check both groups when this file starts flaking.
+
+const FULLY_RESOLVABLE_INPUT = `{
   "name": "demo",
 <<<<<<< before updating
   "version": "2.0.0",
-||||||| ancestor
+||||||| last update
   "version": "1.0.0",
 =======
   "version": "2.0.0",
->>>>>>> updated
+>>>>>>> after updating
   "dependencies": {
 <<<<<<< before updating
     "@types/node": "24.13.2",
     "vitest": "4.1.9"
-||||||| ancestor
+||||||| last update
     "@types/node": "24.10.0",
     "vitest": "4.1.5"
 =======
     "@types/node": "24.13.2",
     "vitest": "4.1.9"
->>>>>>> updated
+>>>>>>> after updating
   }
 }
 `
 
-const JSON_RESOLVED = `{
+const FULLY_RESOLVABLE_EXPECTED = `{
   "name": "demo",
   "version": "2.0.0",
   "dependencies": {
@@ -44,6 +46,125 @@ const JSON_RESOLVED = `{
     "vitest": "4.1.9"
   }
 }
+`
+
+// Single block whose name/description/version keys can be resolved per-key,
+// leaving only the truly conflicting `packageManager` value inside a shrunk
+// marker.
+const SINGLE_BLOCK_PARTIAL_INPUT = `{
+<<<<<<< before updating
+  "name": "@fohte/eslint-config",
+  "description": "ESLint config for fohte",
+  "version": "0.3.4",
+  "packageManager": "pnpm@11.5.3",
+||||||| last update
+  "name": "eslint-config",
+  "private": true,
+  "packageManager": "pnpm@11.5.2",
+=======
+  "name": "eslint-config",
+  "private": true,
+  "packageManager": "pnpm@11.7.0",
+>>>>>>> after updating
+  "type": "module"
+}
+`
+
+const SINGLE_BLOCK_PARTIAL_EXPECTED = `{
+  "name": "@fohte/eslint-config",
+  "description": "ESLint config for fohte",
+  "version": "0.3.4",
+<<<<<<< before updating
+  "packageManager": "pnpm@11.5.3",
+||||||| last update
+  "packageManager": "pnpm@11.5.2",
+=======
+  "packageManager": "pnpm@11.7.0",
+>>>>>>> after updating
+  "type": "module"
+}
+`
+
+const MULTI_BLOCK_PARTIAL_INPUT = `{
+<<<<<<< before updating
+  "name": "@fohte/demo",
+  "version": "0.3.4",
+  "packageManager": "pnpm@11.5.3",
+||||||| last update
+  "name": "demo",
+  "packageManager": "pnpm@11.5.2",
+=======
+  "name": "demo",
+  "packageManager": "pnpm@11.7.0",
+>>>>>>> after updating
+  "type": "module",
+  "dependencies": {
+<<<<<<< before updating
+    "@types/node": "24.13.2",
+    "eslint": "9.20.0",
+    "vitest": "4.1.9"
+||||||| last update
+    "@types/node": "24.10.0",
+    "eslint": "9.15.0",
+    "vitest": "4.1.5"
+=======
+    "@types/node": "24.10.0",
+    "eslint": "9.30.0",
+    "vitest": "4.1.9"
+>>>>>>> after updating
+  }
+}
+`
+
+const MULTI_BLOCK_PARTIAL_EXPECTED = `{
+  "name": "@fohte/demo",
+  "version": "0.3.4",
+<<<<<<< before updating
+  "packageManager": "pnpm@11.5.3",
+||||||| last update
+  "packageManager": "pnpm@11.5.2",
+=======
+  "packageManager": "pnpm@11.7.0",
+>>>>>>> after updating
+  "type": "module",
+  "dependencies": {
+    "@types/node": "24.13.2",
+<<<<<<< before updating
+    "eslint": "9.20.0",
+||||||| last update
+    "eslint": "9.15.0",
+=======
+    "eslint": "9.30.0",
+>>>>>>> after updating
+    "vitest": "4.1.9"
+  }
+}
+`
+
+const FULLY_UNRESOLVABLE_INPUT = `{
+  "name": "demo",
+<<<<<<< before updating
+  "version": "2.0.0"
+||||||| last update
+  "version": "1.0.0"
+=======
+  "version": "3.0.0"
+>>>>>>> after updating
+}
+`
+
+// mergiraf falls back to giving up entirely (exit 1) when the file extension
+// does not map to a supported language parser. The file must survive intact so
+// the downstream PR still shows the original conflict for a human to resolve.
+const UNSUPPORTED_LANGUAGE_INPUT = `# demo
+
+<<<<<<< before updating
+new content
+||||||| last update
+old content
+=======
+alt content
+>>>>>>> after updating
 `
 
 describe('resolveConflicts (real mergiraf binary)', () => {
@@ -57,12 +178,48 @@ describe('resolveConflicts (real mergiraf binary)', () => {
     rmSync(tmpDir, { recursive: true, force: true })
   })
 
-  it('resolves every identically-bumped block in a JSON file', async () => {
+  it('fully resolves every block when both sides agree on the new value', async () => {
     const file = join(tmpDir, 'package.json')
-    writeFileSync(file, JSON_WITH_TWO_IDENTICAL_BUMP_BLOCKS)
+    writeFileSync(file, FULLY_RESOLVABLE_INPUT)
 
     await resolveConflicts([file], MERGIRAF_BIN_PATH)
 
-    expect(readFileSync(file, 'utf8')).toEqual(JSON_RESOLVED)
+    expect(readFileSync(file, 'utf8')).toEqual(FULLY_RESOLVABLE_EXPECTED)
+  })
+
+  it('shrinks a single block down to the one key with a real conflict (per-key partial resolve)', async () => {
+    const file = join(tmpDir, 'package.json')
+    writeFileSync(file, SINGLE_BLOCK_PARTIAL_INPUT)
+
+    await resolveConflicts([file], MERGIRAF_BIN_PATH)
+
+    expect(readFileSync(file, 'utf8')).toEqual(SINGLE_BLOCK_PARTIAL_EXPECTED)
+  })
+
+  it('per-key resolves each block independently when multiple blocks contain a mix of resolvable and unresolvable keys', async () => {
+    const file = join(tmpDir, 'package.json')
+    writeFileSync(file, MULTI_BLOCK_PARTIAL_INPUT)
+
+    await resolveConflicts([file], MERGIRAF_BIN_PATH)
+
+    expect(readFileSync(file, 'utf8')).toEqual(MULTI_BLOCK_PARTIAL_EXPECTED)
+  })
+
+  it('leaves the file byte-identical when no key can be resolved', async () => {
+    const file = join(tmpDir, 'package.json')
+    writeFileSync(file, FULLY_UNRESOLVABLE_INPUT)
+
+    await resolveConflicts([file], MERGIRAF_BIN_PATH)
+
+    expect(readFileSync(file, 'utf8')).toEqual(FULLY_UNRESOLVABLE_INPUT)
+  })
+
+  it('does not corrupt the file when mergiraf cannot select a language parser for the extension', async () => {
+    const file = join(tmpDir, 'notes.txt')
+    writeFileSync(file, UNSUPPORTED_LANGUAGE_INPUT)
+
+    await resolveConflicts([file], MERGIRAF_BIN_PATH)
+
+    expect(readFileSync(file, 'utf8')).toEqual(UNSUPPORTED_LANGUAGE_INPUT)
   })
 })
