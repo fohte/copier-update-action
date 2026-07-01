@@ -14,7 +14,22 @@ import { resolveConflicts } from '@/per-block-resolve'
 // tests (fully / partial) while leaving the unchanged-file tests passing
 // spuriously — check both groups when this file starts flaking.
 
-const FULLY_RESOLVABLE_INPUT = `{
+describe('resolveConflicts (real mergiraf binary)', () => {
+  let tmpDir: string
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'per-block-resolve-integration-'))
+  })
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  it('fully resolves every block when both sides agree on the new value', async () => {
+    const file = join(tmpDir, 'package.json')
+    writeFileSync(
+      file,
+      `{
   "name": "demo",
 <<<<<<< before updating
   "version": "2.0.0",
@@ -36,9 +51,13 @@ const FULLY_RESOLVABLE_INPUT = `{
 >>>>>>> after updating
   }
 }
-`
+`,
+    )
 
-const FULLY_RESOLVABLE_EXPECTED = `{
+    await resolveConflicts([file], MERGIRAF_BIN_PATH)
+
+    expect(readFileSync(file, 'utf8')).toEqual(
+      `{
   "name": "demo",
   "version": "2.0.0",
   "dependencies": {
@@ -46,12 +65,15 @@ const FULLY_RESOLVABLE_EXPECTED = `{
     "vitest": "4.1.9"
   }
 }
-`
+`,
+    )
+  })
 
-// Single block whose name/description/version keys can be resolved per-key,
-// leaving only the truly conflicting `packageManager` value inside a shrunk
-// marker.
-const SINGLE_BLOCK_PARTIAL_INPUT = `{
+  it('shrinks a single block down to the one key with a real conflict (per-key partial resolve)', async () => {
+    const file = join(tmpDir, 'package.json')
+    writeFileSync(
+      file,
+      `{
 <<<<<<< before updating
   "name": "@fohte/eslint-config",
   "description": "ESLint config for fohte",
@@ -68,9 +90,13 @@ const SINGLE_BLOCK_PARTIAL_INPUT = `{
 >>>>>>> after updating
   "type": "module"
 }
-`
+`,
+    )
 
-const SINGLE_BLOCK_PARTIAL_EXPECTED = `{
+    await resolveConflicts([file], MERGIRAF_BIN_PATH)
+
+    expect(readFileSync(file, 'utf8')).toEqual(
+      `{
   "name": "@fohte/eslint-config",
   "description": "ESLint config for fohte",
   "version": "0.3.4",
@@ -83,9 +109,15 @@ const SINGLE_BLOCK_PARTIAL_EXPECTED = `{
 >>>>>>> after updating
   "type": "module"
 }
-`
+`,
+    )
+  })
 
-const MULTI_BLOCK_PARTIAL_INPUT = `{
+  it('per-key resolves each block independently when multiple blocks contain a mix of resolvable and unresolvable keys', async () => {
+    const file = join(tmpDir, 'package.json')
+    writeFileSync(
+      file,
+      `{
 <<<<<<< before updating
   "name": "@fohte/demo",
   "version": "0.3.4",
@@ -114,9 +146,13 @@ const MULTI_BLOCK_PARTIAL_INPUT = `{
 >>>>>>> after updating
   }
 }
-`
+`,
+    )
 
-const MULTI_BLOCK_PARTIAL_EXPECTED = `{
+    await resolveConflicts([file], MERGIRAF_BIN_PATH)
+
+    expect(readFileSync(file, 'utf8')).toEqual(
+      `{
   "name": "@fohte/demo",
   "version": "0.3.4",
 <<<<<<< before updating
@@ -139,9 +175,13 @@ const MULTI_BLOCK_PARTIAL_EXPECTED = `{
     "vitest": "4.1.9"
   }
 }
-`
+`,
+    )
+  })
 
-const FULLY_UNRESOLVABLE_INPUT = `{
+  it('leaves the file byte-identical when no key can be resolved', async () => {
+    const file = join(tmpDir, 'package.json')
+    const input = `{
   "name": "demo",
 <<<<<<< before updating
   "version": "2.0.0"
@@ -152,11 +192,20 @@ const FULLY_UNRESOLVABLE_INPUT = `{
 >>>>>>> after updating
 }
 `
+    writeFileSync(file, input)
 
-// mergiraf falls back to giving up entirely (exit 1) when the file extension
-// does not map to a supported language parser. The file must survive intact so
-// the downstream PR still shows the original conflict for a human to resolve.
-const UNSUPPORTED_LANGUAGE_INPUT = `# demo
+    await resolveConflicts([file], MERGIRAF_BIN_PATH)
+
+    expect(readFileSync(file, 'utf8')).toEqual(input)
+  })
+
+  it('does not corrupt the file when mergiraf cannot select a language parser for the extension', async () => {
+    // mergiraf falls back to giving up entirely (exit 1) when the file
+    // extension does not map to a supported language parser. The file must
+    // survive intact so the downstream PR still shows the original conflict
+    // for a human to resolve.
+    const file = join(tmpDir, 'notes.txt')
+    const input = `# demo
 
 <<<<<<< before updating
 new content
@@ -166,60 +215,10 @@ old content
 alt content
 >>>>>>> after updating
 `
-
-describe('resolveConflicts (real mergiraf binary)', () => {
-  let tmpDir: string
-
-  beforeEach(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), 'per-block-resolve-integration-'))
-  })
-
-  afterEach(() => {
-    rmSync(tmpDir, { recursive: true, force: true })
-  })
-
-  it('fully resolves every block when both sides agree on the new value', async () => {
-    const file = join(tmpDir, 'package.json')
-    writeFileSync(file, FULLY_RESOLVABLE_INPUT)
+    writeFileSync(file, input)
 
     await resolveConflicts([file], MERGIRAF_BIN_PATH)
 
-    expect(readFileSync(file, 'utf8')).toEqual(FULLY_RESOLVABLE_EXPECTED)
-  })
-
-  it('shrinks a single block down to the one key with a real conflict (per-key partial resolve)', async () => {
-    const file = join(tmpDir, 'package.json')
-    writeFileSync(file, SINGLE_BLOCK_PARTIAL_INPUT)
-
-    await resolveConflicts([file], MERGIRAF_BIN_PATH)
-
-    expect(readFileSync(file, 'utf8')).toEqual(SINGLE_BLOCK_PARTIAL_EXPECTED)
-  })
-
-  it('per-key resolves each block independently when multiple blocks contain a mix of resolvable and unresolvable keys', async () => {
-    const file = join(tmpDir, 'package.json')
-    writeFileSync(file, MULTI_BLOCK_PARTIAL_INPUT)
-
-    await resolveConflicts([file], MERGIRAF_BIN_PATH)
-
-    expect(readFileSync(file, 'utf8')).toEqual(MULTI_BLOCK_PARTIAL_EXPECTED)
-  })
-
-  it('leaves the file byte-identical when no key can be resolved', async () => {
-    const file = join(tmpDir, 'package.json')
-    writeFileSync(file, FULLY_UNRESOLVABLE_INPUT)
-
-    await resolveConflicts([file], MERGIRAF_BIN_PATH)
-
-    expect(readFileSync(file, 'utf8')).toEqual(FULLY_UNRESOLVABLE_INPUT)
-  })
-
-  it('does not corrupt the file when mergiraf cannot select a language parser for the extension', async () => {
-    const file = join(tmpDir, 'notes.txt')
-    writeFileSync(file, UNSUPPORTED_LANGUAGE_INPUT)
-
-    await resolveConflicts([file], MERGIRAF_BIN_PATH)
-
-    expect(readFileSync(file, 'utf8')).toEqual(UNSUPPORTED_LANGUAGE_INPUT)
+    expect(readFileSync(file, 'utf8')).toEqual(input)
   })
 })
