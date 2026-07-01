@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/fohte/copier-update-action/compare/v0.1.1...v0.1.2) (2026-07-01)
+
+
+### Bug Fixes
+
+* **per-block-resolve:** preserve mergiraf's per-key partial resolutions ([#23](https://github.com/fohte/copier-update-action/issues/23)) ([661e931](https://github.com/fohte/copier-update-action/commit/661e9314fdf851f3cb2a7e50c6776464977fbaa9))
+
 ## [0.1.1](https://github.com/fohte/copier-update-action/compare/v0.1.0...v0.1.1) (2026-06-30)
 
 
