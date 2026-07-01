@@ -39,7 +39,18 @@ function resolveFile(filePath: string, mergirafBin: string): void {
     exitStatus = status ?? -1
   }
 
-  if (readFileSync(filePath, 'utf8').includes(CONFLICT_MARKER)) {
+  let hasMarker: boolean
+  try {
+    hasMarker = readFileSync(filePath, 'utf8').includes(CONFLICT_MARKER)
+  } catch (err) {
+    // Any I/O failure here (permissions changed, file removed, etc.) must
+    // stay local to this file so the caller can keep processing the rest of
+    // the conflict list. Surface it as a warning annotation and move on.
+    const detail = err instanceof Error ? err.message : String(err)
+    core.warning(`failed to read ${filePath} after mergiraf: ${detail}`)
+    return
+  }
+  if (hasMarker) {
     // Include the exit status so callers can distinguish "mergiraf gave up
     // without touching the file" (exit 1) from "mergiraf resolved some blocks
     // but left the rest as smaller markers" (exit 2).

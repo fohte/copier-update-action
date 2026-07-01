@@ -2,7 +2,7 @@
 
 > **Status: pre-release (`v0.x`).** The action's runtime is still being built out in follow-up commits; the inputs, outputs, and bundled `dist/` referenced below describe the target shape. Until `v1.0.0` is cut, the floating major tag is `v0` and breaking changes can land between minor versions.
 
-A reusable GitHub Action that runs `copier update` against a [copier](https://copier.readthedocs.io/) template and resolves the resulting per-block conflicts with [mergiraf](https://mergiraf.org/) so that the updated working tree is as close to mergeable as possible.
+A reusable GitHub Action that runs `copier update` against a [copier](https://copier.readthedocs.io/) template and resolves the resulting conflict blocks with [mergiraf](https://mergiraf.org/) so that the updated working tree is as close to mergeable as possible.
 
 The action is **scoped narrowly**: it only updates the working tree. Checkout, branch creation, commit, push, and PR creation are the caller workflow's responsibility. This keeps the action reusable across repositories with different branching and PR conventions.
 
@@ -13,7 +13,7 @@ Renovate ships a [Copier manager](https://docs.renovatebot.com/modules/manager/c
 This action narrows that gap with two changes:
 
 1. It configures `git config merge.conflictStyle diff3` before running `copier update`, so each conflict block carries the common ancestor (`|||||||` section). This is what mergiraf needs to perform a 3-way merge.
-2. It runs mergiraf **per conflict block** instead of per file. mergiraf's CLI is all-or-nothing per invocation — if any block in a file fails to merge, the whole file is left untouched. The action splits a file into individual blocks, feeds each block to mergiraf in isolation (with other blocks collapsed to the "before" side so the surrounding context still parses), and splices the resolved blocks back into the file. Unresolvable blocks keep their original markers; resolvable ones disappear.
+2. It hands each conflicted file to `mergiraf solve`. mergiraf's structured merger works at the key level, so a JSON conflict that previously left a 12-line marker around four keys can come back as a 4-line marker around just the one key that actually collides. Fully resolvable blocks disappear entirely; the rest shrink to the still-unresolved regions.
 
 The net effect is that PRs which previously needed manual conflict resolution often merge cleanly, and the ones that don't have a strictly smaller surface to review.
 
@@ -34,7 +34,7 @@ The net effect is that PRs which previously needed manual conflict resolution of
 | ------------------ | ------------------------------------------ | ------------------------------------------------------------------------------------------------- |
 | `target-version`   | string (e.g. `v0.8.10`)                    | the ref that was actually applied. Same as the input when set; otherwise the resolved latest tag. |
 | `changed`          | `'true'` \| `'false'`                      | whether tracked files differ from `HEAD` after the update.                                        |
-| `unresolved-files` | newline-separated string (empty when none) | paths of files that still contain conflict markers after per-block resolution.                    |
+| `unresolved-files` | newline-separated string (empty when none) | paths of files that still contain conflict markers after mergiraf has attempted to resolve them.  |
 
 `unresolved-files` uses newlines because `$GITHUB_OUTPUT` values are strings. Convert to a JSON array for downstream steps with:
 
