@@ -1,4 +1,6 @@
 pre-commit:
+  exclude:
+    - 'dist/**'
   commands:
     format:
       # Remove trailing whitespace and ensure final newline
@@ -59,8 +61,6 @@ pre-commit:
 
     eslint:
       glob: '*.{js,ts,jsx,tsx,mjs,cjs}'
-      exclude:
-        - 'dist/**'
       run: pnpm exec eslint {staged_files}
 
 commit-msg:
