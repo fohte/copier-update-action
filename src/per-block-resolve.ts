@@ -8,7 +8,10 @@ const CONFLICT_MARKER = '<<<<<<< before updating'
 function resolveFile(filePath: string, mergirafBin: string): void {
   let exitStatus = 0
   try {
-    execFileSync(mergirafBin, ['solve', filePath], {
+    // mergiraf defaults --keep-backup to true, writing a `<file>.orig` copy
+    // of the pre-resolution content that is never cleaned up and ends up
+    // committed by the workflow's `git add -A` step.
+    execFileSync(mergirafBin, ['solve', filePath, '--keep-backup=false'], {
       stdio: ['ignore', 'ignore', 'pipe'],
     })
   } catch (err) {
