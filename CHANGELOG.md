@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/fohte/copier-update-action/compare/v0.1.2...v0.1.3) (2026-07-07)
+
+
+### Bug Fixes
+
+* **per-block-resolve:** stop leaving mergiraf .orig backup files behind ([#29](https://github.com/fohte/copier-update-action/issues/29)) ([c1428c1](https://github.com/fohte/copier-update-action/commit/c1428c12dfc80672ad6a771d9dce46af88969acf))
+
 ## [0.1.2](https://github.com/fohte/copier-update-action/compare/v0.1.1...v0.1.2) (2026-07-01)
 
 
