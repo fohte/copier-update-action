@@ -9,6 +9,7 @@ pre-commit:
       stage_fixed: true
 
     prettier:
+      # No dist/** exclude needed: Prettier 3 already respects .gitignore by default.
       run: pnpm exec prettier --write --ignore-unknown --no-error-on-unmatched-pattern {staged_files}
       stage_fixed: true
 
