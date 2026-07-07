@@ -1,4 +1,10 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -220,5 +226,26 @@ alt content
     await resolveConflicts([file], MERGIRAF_BIN_PATH)
 
     expect(readFileSync(file, 'utf8')).toEqual(input)
+  })
+
+  it('does not leave a mergiraf .orig backup file behind after resolving conflicts', async () => {
+    const file = join(tmpDir, 'package.json')
+    writeFileSync(
+      file,
+      `{
+<<<<<<< before updating
+  "version": "2.0.0",
+||||||| last update
+  "version": "1.0.0",
+=======
+  "version": "2.0.0",
+>>>>>>> after updating
+}
+`,
+    )
+
+    await resolveConflicts([file], MERGIRAF_BIN_PATH)
+
+    expect(existsSync(`${file}.orig`)).toBe(false)
   })
 })
