@@ -1,7 +1,9 @@
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 
 import * as core from '@actions/core'
+
+import { resolveVersionConflicts } from '@/version-conflict'
 
 const CONFLICT_MARKER = '<<<<<<< before updating'
 
@@ -42,9 +44,9 @@ function resolveFile(filePath: string, mergirafBin: string): void {
     exitStatus = status ?? -1
   }
 
-  let hasMarker: boolean
+  let content: string
   try {
-    hasMarker = readFileSync(filePath, 'utf8').includes(CONFLICT_MARKER)
+    content = readFileSync(filePath, 'utf8')
   } catch (err) {
     // Any I/O failure here (permissions changed, file removed, etc.) must
     // stay local to this file so the caller can keep processing the rest of
@@ -53,7 +55,28 @@ function resolveFile(filePath: string, mergirafBin: string): void {
     core.warning(`failed to read ${filePath} after mergiraf: ${detail}`)
     return
   }
-  if (hasMarker) {
+
+  if (content.includes(CONFLICT_MARKER)) {
+    const resolved = resolveVersionConflicts(content)
+    if (resolved !== content) {
+      try {
+        writeFileSync(filePath, resolved)
+        content = resolved
+        core.info('resolved a version-only conflict via semver comparison')
+      } catch (err) {
+        // Same rationale as the read above: keep the failure local to this
+        // file rather than aborting the rest of the conflict list. `content`
+        // is left at its pre-write value since the file on disk was not
+        // actually updated.
+        const detail = err instanceof Error ? err.message : String(err)
+        core.warning(
+          `failed to write ${filePath} after version-conflict resolution: ${detail}`,
+        )
+      }
+    }
+  }
+
+  if (content.includes(CONFLICT_MARKER)) {
     // Include the exit status so callers can distinguish "mergiraf gave up
     // without touching the file" (exit 1) from "mergiraf resolved some blocks
     // but left the rest as smaller markers" (exit 2).

@@ -10,10 +10,11 @@ The action is **scoped narrowly**: it only updates the working tree. Checkout, b
 
 Renovate ships a [Copier manager](https://docs.renovatebot.com/modules/manager/copier/) that opens PRs when the template moves. In practice those PRs frequently land with unresolved conflict markers when the consumer has diverged from the template, because Renovate runs `copier update` with a 2-way merge driver and surfaces every conflict as-is.
 
-This action narrows that gap with two changes:
+This action narrows that gap with three changes:
 
 1. It configures `git config merge.conflictStyle diff3` before running `copier update`, so each conflict block carries the common ancestor (`|||||||` section). This is what mergiraf needs to perform a 3-way merge.
 2. It hands each conflicted file to `mergiraf solve`. mergiraf's structured merger works at the key level, so a JSON conflict that previously left a 12-line marker around four keys can come back as a 4-line marker around just the one key that actually collides. Fully resolvable blocks disappear entirely; the rest shrink to the still-unresolved regions.
+3. For conflicts mergiraf still leaves behind, it compares the `before updating` and `after updating` sides as versions. When both sides parse as a comparable version, it keeps whichever is semantically newer — following the template's bump, or keeping the repository's own newer value instead of downgrading it. Conflicts that aren't a clean version-only difference are left for manual resolution.
 
 The net effect is that PRs which previously needed manual conflict resolution often merge cleanly, and the ones that don't have a strictly smaller surface to review.
 
@@ -30,11 +31,11 @@ The net effect is that PRs which previously needed manual conflict resolution of
 
 ## Outputs
 
-| name               | type                                       | description                                                                                       |
-| ------------------ | ------------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| `target-version`   | string (e.g. `v0.8.10`)                    | the ref that was actually applied. Same as the input when set; otherwise the resolved latest tag. |
-| `changed`          | `'true'` \| `'false'`                      | whether tracked files differ from `HEAD` after the update.                                        |
-| `unresolved-files` | newline-separated string (empty when none) | paths of files that still contain conflict markers after mergiraf has attempted to resolve them.  |
+| name               | type                                       | description                                                                                                                      |
+| ------------------ | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `target-version`   | string (e.g. `v0.8.10`)                    | the ref that was actually applied. Same as the input when set; otherwise the resolved latest tag.                                |
+| `changed`          | `'true'` \| `'false'`                      | whether tracked files differ from `HEAD` after the update.                                                                       |
+| `unresolved-files` | newline-separated string (empty when none) | paths of files that still contain conflict markers after mergiraf and the version-based resolver have attempted to resolve them. |
 
 `unresolved-files` uses newlines because `$GITHUB_OUTPUT` values are strings. Convert to a JSON array for downstream steps with:
 
