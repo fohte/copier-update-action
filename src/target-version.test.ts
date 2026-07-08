@@ -8,8 +8,7 @@ interface RecordedCall {
 }
 
 type ClientBehavior =
-  | { kind: 'ok'; tagName: string }
-  | { kind: 'reject'; error: Error }
+  { kind: 'ok'; tagName: string } | { kind: 'reject'; error: Error }
 
 const recordingClient = (
   behavior: () => ClientBehavior,
@@ -38,7 +37,8 @@ describe('resolveTargetVersion', () => {
       client,
     )
 
-    expect({ result, calls }).toEqual({
+    const actual = { result, calls }
+    expect(actual).toEqual({
       result: 'v9.9.9',
       calls: [],
     })
@@ -55,7 +55,8 @@ describe('resolveTargetVersion', () => {
       client,
     )
 
-    expect({ result, calls }).toEqual({
+    const actual = { result, calls }
+    expect(actual).toEqual({
       result: 'v1.2.3',
       calls: [{ owner: 'owner', repo: 'repo' }],
     })
