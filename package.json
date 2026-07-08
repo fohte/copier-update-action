@@ -16,7 +16,9 @@
   "dependencies": {
     "@actions/core": "3.0.1",
     "@actions/exec": "3.0.0",
-    "@actions/github": "9.1.1"
+    "@actions/github": "9.1.1",
+    "diff": "9.0.0",
+    "semver": "7.8.5"
   },
   "devDependencies": {
     "@commitlint/cli": "21.0.2",
@@ -25,6 +27,7 @@
     "@tsconfig/node-lts": "24.0.0",
     "@tsconfig/strictest": "2.0.8",
     "@types/node": "24.13.2",
+    "@types/semver": "7.7.1",
     "@vercel/ncc": "0.44.0",
     "concurrently": "10.0.3",
     "eslint": "10.5.0",
