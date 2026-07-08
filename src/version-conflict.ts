@@ -168,7 +168,14 @@ function resolveBlockLines(
  * or lines with no counterpart on the other side) are left conflicted.
  */
 export function resolveVersionConflicts(content: string): string {
-  const lines = content.split('\n')
+  // mergiraf always emits LF, but the file it operates on may still be CRLF
+  // (e.g. checked out with core.autocrlf or a CRLF gitattributes rule).
+  // Splitting on '\n' alone would leave a trailing '\r' on every line,
+  // so BEFORE_MARKER and friends would never match.
+  const hasCrlf = content.includes('\r\n')
+  const normalized = hasCrlf ? content.replace(/\r\n/g, '\n') : content
+
+  const lines = normalized.split('\n')
   const output: string[] = []
   let i = 0
   while (i < lines.length) {
@@ -181,11 +188,13 @@ export function resolveVersionConflicts(content: string): string {
     }
     const block = readBlock(lines, i)
     if (block === null) {
-      output.push(...lines.slice(i))
-      break
+      output.push(line)
+      i++
+      continue
     }
     output.push(...resolveBlockLines(block.before, block.base, block.after))
     i = block.nextIndex
   }
-  return output.join('\n')
+  const resolved = output.join('\n')
+  return hasCrlf ? resolved.replace(/\n/g, '\r\n') : resolved
 }

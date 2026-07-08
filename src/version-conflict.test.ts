@@ -260,6 +260,22 @@ truncated, no closing markers
     )
   })
 
+  it('resolves a conflict and preserves CRLF line endings', () => {
+    const input = [
+      '<<<<<<< before updating',
+      '  "version": "1.0.0"',
+      '||||||| last update',
+      '  "version": "0.9.0"',
+      '=======',
+      '  "version": "2.0.0"',
+      '>>>>>>> after updating',
+      '',
+    ].join('\r\n')
+    expect(resolveVersionConflicts(input)).toEqual(
+      ['  "version": "2.0.0"', ''].join('\r\n'),
+    )
+  })
+
   it('returns content unchanged when it has no conflict markers', () => {
     const input = `{
   "version": "1.0.0"
