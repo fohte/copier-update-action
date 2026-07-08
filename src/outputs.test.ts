@@ -111,7 +111,8 @@ describe('writeOutputs', () => {
 
     await writeOutputs(exec)
 
-    expect({ calls, outputs: parseGithubOutput(outputPath) }).toEqual({
+    const actual = { calls, outputs: parseGithubOutput(outputPath) }
+    expect(actual).toEqual({
       calls: [
         {
           commandLine: 'git',

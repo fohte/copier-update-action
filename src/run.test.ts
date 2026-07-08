@@ -102,7 +102,8 @@ describe('runWithDeps', () => {
       }),
     )
 
-    expect({ steps: log.steps, resolveArgs }).toEqual({
+    const actual = { steps: log.steps, resolveArgs }
+    expect(actual).toEqual({
       steps: [
         'readInputs',
         'validateInputs',
