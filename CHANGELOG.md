@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/fohte/copier-update-action/compare/v0.1.3...v0.1.4) (2026-07-08)
+
+
+### Features
+
+* **per-block-resolve:** auto-resolve version-only conflicts left by mergiraf ([#33](https://github.com/fohte/copier-update-action/issues/33)) ([cde3e29](https://github.com/fohte/copier-update-action/commit/cde3e291cd715575cda165482c3404df9fcdc566))
+
 ## [0.1.3](https://github.com/fohte/copier-update-action/compare/v0.1.2...v0.1.3) (2026-07-07)
 
 
