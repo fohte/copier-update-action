@@ -37,24 +37,10 @@ describe('resolveConflicts (real mergiraf binary)', () => {
       file,
       `{
   "name": "demo",
-<<<<<<< before updating
   "version": "2.0.0",
-||||||| last update
-  "version": "1.0.0",
-=======
-  "version": "2.0.0",
->>>>>>> after updating
   "dependencies": {
-<<<<<<< before updating
     "@types/node": "24.13.2",
     "vitest": "4.1.9"
-||||||| last update
-    "@types/node": "24.10.0",
-    "vitest": "4.1.5"
-=======
-    "@types/node": "24.13.2",
-    "vitest": "4.1.9"
->>>>>>> after updating
   }
 }
 `,
@@ -84,21 +70,21 @@ describe('resolveConflicts (real mergiraf binary)', () => {
       file,
       `{
 <<<<<<< before updating
-  "name": "@fohte/eslint-config",
-  "description": "ESLint config for fohte",
-  "version": "0.3.4",
-  "packageManager": "corepack",
+        "name": "@fohte/eslint-config",
+        "description": "ESLint config for fohte",
+        "version": "0.3.4",
+        "packageManager": "corepack",
 ||||||| last update
-  "name": "eslint-config",
-  "private": true,
-  "packageManager": "npm",
+        "name": "eslint-config",
+        "private": true,
+        "packageManager": "npm",
 =======
-  "name": "eslint-config",
-  "private": true,
-  "packageManager": "yarn",
+        "name": "eslint-config",
+        "private": true,
+        "packageManager": "yarn",
 >>>>>>> after updating
-  "type": "module"
-}
+        "type": "module"
+      }
 `,
     )
 
@@ -131,33 +117,33 @@ describe('resolveConflicts (real mergiraf binary)', () => {
       file,
       `{
 <<<<<<< before updating
-  "name": "@fohte/demo",
-  "version": "0.3.4",
-  "packageManager": "corepack",
+        "name": "@fohte/demo",
+        "version": "0.3.4",
+        "packageManager": "corepack",
 ||||||| last update
-  "name": "demo",
-  "packageManager": "npm",
+        "name": "demo",
+        "packageManager": "npm",
 =======
-  "name": "demo",
-  "packageManager": "yarn",
+        "name": "demo",
+        "packageManager": "yarn",
 >>>>>>> after updating
-  "type": "module",
-  "dependencies": {
+        "type": "module",
+        "dependencies": {
 <<<<<<< before updating
-    "@types/node": "24.13.2",
-    "eslint": "latest",
-    "vitest": "4.1.9"
+          "@types/node": "24.13.2",
+          "eslint": "latest",
+          "vitest": "4.1.9"
 ||||||| last update
-    "@types/node": "24.10.0",
-    "eslint": "stable",
-    "vitest": "4.1.5"
+          "@types/node": "24.10.0",
+          "eslint": "stable",
+          "vitest": "4.1.5"
 =======
-    "@types/node": "24.10.0",
-    "eslint": "canary",
-    "vitest": "4.1.9"
+          "@types/node": "24.10.0",
+          "eslint": "canary",
+          "vitest": "4.1.9"
 >>>>>>> after updating
-  }
-}
+        }
+      }
 `,
     )
 
@@ -274,15 +260,13 @@ describe('resolveConflicts (real mergiraf binary)', () => {
 
 <<<<<<< before updating
 version: 2.0.0
-shared: unchanged
-extra: repo-only-line
 ||||||| last update
 version: 1.0.0
-shared: unchanged
 =======
 version: 3.0.0
-shared: unchanged
 >>>>>>> after updating
+shared: unchanged
+extra: repo-only-line
 `,
     )
 
@@ -291,13 +275,13 @@ shared: unchanged
     expect(readFileSync(file, 'utf8')).toEqual(
       `# demo
 
-version: 3.0.0
-shared: unchanged
+      version: 3.0.0
+      shared: unchanged
 <<<<<<< before updating
-extra: repo-only-line
+      extra: repo-only-line
 ||||||| last update
-version: 1.0.0
-shared: unchanged
+      version: 1.0.0
+      shared: unchanged
 =======
 >>>>>>> after updating
 `,
@@ -332,13 +316,7 @@ alt content
     writeFileSync(
       file,
       `{
-<<<<<<< before updating
   "version": "2.0.0",
-||||||| last update
-  "version": "1.0.0",
-=======
-  "version": "2.0.0",
->>>>>>> after updating
 }
 `,
     )
