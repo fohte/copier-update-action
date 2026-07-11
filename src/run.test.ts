@@ -86,7 +86,6 @@ describe('runWithDeps', () => {
 
   it('invokes resolveConflicts when detectConflicts returns files', async () => {
     const log: CallLog = { steps: [] }
-    let resolveArgs: { files: string[]; bin: string } | undefined
 
     await runWithDeps(
       makeDeps(log, {
@@ -94,9 +93,8 @@ describe('runWithDeps', () => {
           log.steps.push('detectConflicts')
           return Promise.resolve(['a.txt', 'b.txt'])
         },
-        resolveConflicts: (files, bin) => {
+        resolveConflicts: () => {
           log.steps.push('resolveConflicts')
-          resolveArgs = { files, bin }
           return Promise.resolve()
         },
       }),
@@ -113,6 +111,22 @@ describe('runWithDeps', () => {
       'resolveConflicts',
       'writeOutputs',
     ])
+  })
+
+  it('passes detected files and the installed mergiraf bin path to resolveConflicts', async () => {
+    const log: CallLog = { steps: [] }
+    let resolveArgs: { files: string[]; bin: string } | undefined
+
+    await runWithDeps(
+      makeDeps(log, {
+        detectConflicts: () => Promise.resolve(['a.txt', 'b.txt']),
+        resolveConflicts: (files, bin) => {
+          resolveArgs = { files, bin }
+          return Promise.resolve()
+        },
+      }),
+    )
+
     expect(resolveArgs).toEqual({
       files: ['a.txt', 'b.txt'],
       bin: '/usr/local/bin/mergiraf',

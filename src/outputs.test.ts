@@ -103,7 +103,7 @@ const GREP_ARGS = [
 ]
 
 describe('writeOutputs', () => {
-  it('emits changed=false and empty unresolved-files when no diff and no conflicts', async () => {
+  it('invokes git status and grep with the expected arguments', async () => {
     const { exec, calls } = recordingExec([
       { exitCode: 0, stdout: Buffer.from('') },
       { exitCode: 1, stdout: Buffer.from('') },
@@ -123,6 +123,16 @@ describe('writeOutputs', () => {
         ignoreReturnCode: true,
       },
     ])
+  })
+
+  it('emits changed=false and empty unresolved-files when no diff and no conflicts', async () => {
+    const { exec } = recordingExec([
+      { exitCode: 0, stdout: Buffer.from('') },
+      { exitCode: 1, stdout: Buffer.from('') },
+    ])
+
+    await writeOutputs(exec)
+
     expect(parseGithubOutput(outputPath)).toEqual([
       { name: 'changed', value: 'false' },
       { name: 'unresolved-files', value: '' },
