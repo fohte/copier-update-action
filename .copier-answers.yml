@@ -2,8 +2,9 @@
 _commit: v0.8.14
 _src_path: https://github.com/fohte/generic-boilerplate
 auto_merge_release_pr: false
-description: Run copier update with mergiraf-driven conflict resolution as a reusable
-    GitHub Action
+description:
+  Run copier update with mergiraf-driven conflict resolution as a reusable
+  GitHub Action
 is_public: true
 is_web_app: false
 project_name: copier-update-action

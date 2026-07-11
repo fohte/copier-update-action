@@ -111,25 +111,22 @@ describe('writeOutputs', () => {
 
     await writeOutputs(exec)
 
-    const actual = { calls, outputs: parseGithubOutput(outputPath) }
-    expect(actual).toEqual({
-      calls: [
-        {
-          commandLine: 'git',
-          args: STATUS_ARGS,
-          ignoreReturnCode: true,
-        },
-        {
-          commandLine: 'git',
-          args: GREP_ARGS,
-          ignoreReturnCode: true,
-        },
-      ],
-      outputs: [
-        { name: 'changed', value: 'false' },
-        { name: 'unresolved-files', value: '' },
-      ],
-    })
+    expect(calls).toEqual([
+      {
+        commandLine: 'git',
+        args: STATUS_ARGS,
+        ignoreReturnCode: true,
+      },
+      {
+        commandLine: 'git',
+        args: GREP_ARGS,
+        ignoreReturnCode: true,
+      },
+    ])
+    expect(parseGithubOutput(outputPath)).toEqual([
+      { name: 'changed', value: 'false' },
+      { name: 'unresolved-files', value: '' },
+    ])
   })
 
   it('emits changed=true when only untracked files are added (no tracked diff)', async () => {

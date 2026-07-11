@@ -102,23 +102,20 @@ describe('runWithDeps', () => {
       }),
     )
 
-    const actual = { steps: log.steps, resolveArgs }
-    expect(actual).toEqual({
-      steps: [
-        'readInputs',
-        'validateInputs',
-        'resolveTargetVersion',
-        'installMergiraf',
-        'configureDiff3',
-        'runCopierUpdate',
-        'detectConflicts',
-        'resolveConflicts',
-        'writeOutputs',
-      ],
-      resolveArgs: {
-        files: ['a.txt', 'b.txt'],
-        bin: '/usr/local/bin/mergiraf',
-      },
+    expect(log.steps).toEqual([
+      'readInputs',
+      'validateInputs',
+      'resolveTargetVersion',
+      'installMergiraf',
+      'configureDiff3',
+      'runCopierUpdate',
+      'detectConflicts',
+      'resolveConflicts',
+      'writeOutputs',
+    ])
+    expect(resolveArgs).toEqual({
+      files: ['a.txt', 'b.txt'],
+      bin: '/usr/local/bin/mergiraf',
     })
   })
 

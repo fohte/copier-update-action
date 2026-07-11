@@ -37,11 +37,8 @@ describe('resolveTargetVersion', () => {
       client,
     )
 
-    const actual = { result, calls }
-    expect(actual).toEqual({
-      result: 'v9.9.9',
-      calls: [],
-    })
+    expect(result).toEqual('v9.9.9')
+    expect(calls).toEqual([])
   })
 
   it('resolves the latest tag via the release client', async () => {
@@ -55,11 +52,8 @@ describe('resolveTargetVersion', () => {
       client,
     )
 
-    const actual = { result, calls }
-    expect(actual).toEqual({
-      result: 'v1.2.3',
-      calls: [{ owner: 'owner', repo: 'repo' }],
-    })
+    expect(result).toEqual('v1.2.3')
+    expect(calls).toEqual([{ owner: 'owner', repo: 'repo' }])
   })
 
   it('propagates the error when the client rejects', async () => {
