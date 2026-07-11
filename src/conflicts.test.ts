@@ -1,3 +1,4 @@
+import { recordingExec } from '@test/exec'
 import { describe, expect, it } from 'vitest'
 
 import { detectConflicts, type Exec } from '@/conflicts'
@@ -18,30 +19,13 @@ const fakeExecChunks = (exitCode: number, chunks: Buffer[]): Exec => {
   }
 }
 
-interface ExecCall {
-  commandLine: string
-  args: string[] | undefined
-}
-
-const recordingExec = (
-  exitCode: number,
-  stdout: string,
-): { exec: Exec; calls: ExecCall[] } => {
-  const calls: ExecCall[] = []
-  const exec: Exec = (commandLine, args, options) => {
-    calls.push({ commandLine, args })
-    options?.listeners?.stdout?.(Buffer.from(stdout))
-    return Promise.resolve(exitCode)
-  }
-  return { exec, calls }
-}
-
 describe('detectConflicts', () => {
   it('returns empty array without invoking git when there are no paths to scan', async () => {
     const { exec, calls } = recordingExec(0, '')
 
-    expect(await detectConflicts(exec, [])).toEqual([])
-    expect(calls).toEqual([])
+    const actual = { result: await detectConflicts(exec, []), calls }
+
+    expect(actual).toEqual({ result: [], calls: [] })
   })
 
   it('scopes git grep to the given paths via a literal pathspec', async () => {

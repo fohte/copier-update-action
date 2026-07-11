@@ -42,7 +42,7 @@ export interface RunDeps {
   getChangedFiles: (exec: Exec) => Promise<string[]>
   detectConflicts: (exec: Exec, paths: string[]) => Promise<string[]>
   resolveConflicts: (filePaths: string[], mergirafBin: string) => Promise<void>
-  writeOutputs: (exec: Exec) => Promise<void>
+  writeOutputs: (exec: Exec, changedFiles: string[]) => Promise<void>
 }
 
 const defaultGetLatestReleaseFactory =
@@ -86,12 +86,15 @@ export async function runWithDeps(deps: RunDeps): Promise<void> {
     ),
   )
 
-  const conflictFiles = await withGroup('Detect conflicts', async () => {
-    const changedFiles = await deps.getChangedFiles(deps.exec)
-    const files = await deps.detectConflicts(deps.exec, changedFiles)
-    core.info(`detected ${String(files.length)} conflict file(s)`)
-    return files
-  })
+  const { changedFiles, conflictFiles } = await withGroup(
+    'Detect conflicts',
+    async () => {
+      const changed = await deps.getChangedFiles(deps.exec)
+      const files = await deps.detectConflicts(deps.exec, changed)
+      core.info(`detected ${String(files.length)} conflict file(s)`)
+      return { changedFiles: changed, conflictFiles: files }
+    },
+  )
 
   if (conflictFiles.length > 0) {
     await withGroup('Resolve conflicts', () =>
@@ -99,7 +102,9 @@ export async function runWithDeps(deps: RunDeps): Promise<void> {
     )
   }
 
-  await withGroup('Write outputs', () => deps.writeOutputs(deps.exec))
+  await withGroup('Write outputs', () =>
+    deps.writeOutputs(deps.exec, changedFiles),
+  )
 }
 
 export async function run(exec?: Exec): Promise<void> {

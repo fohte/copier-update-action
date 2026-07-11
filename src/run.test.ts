@@ -128,9 +128,10 @@ describe('runWithDeps', () => {
     })
   })
 
-  it('scopes detectConflicts to the files getChangedFiles reports', async () => {
+  it('passes the files getChangedFiles reports to both detectConflicts and writeOutputs', async () => {
     const log: CallLog = { steps: [] }
     let detectPaths: string[] | undefined
+    let writeOutputsPaths: string[] | undefined
 
     await runWithDeps(
       makeDeps(log, {
@@ -139,10 +140,18 @@ describe('runWithDeps', () => {
           detectPaths = paths
           return Promise.resolve([])
         },
+        writeOutputs: (_exec, paths) => {
+          writeOutputsPaths = paths
+          return Promise.resolve()
+        },
       }),
     )
 
-    expect(detectPaths).toEqual(['a.txt', 'b.txt'])
+    const actual = { detectPaths, writeOutputsPaths }
+    expect(actual).toEqual({
+      detectPaths: ['a.txt', 'b.txt'],
+      writeOutputsPaths: ['a.txt', 'b.txt'],
+    })
   })
 
   it('passes resolved target version and copier version into runCopierUpdate', async () => {

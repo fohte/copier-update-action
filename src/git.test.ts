@@ -1,3 +1,4 @@
+import { recordingExec } from '@test/exec'
 import { describe, expect, it } from 'vitest'
 
 import { type Exec, getChangedFiles } from '@/git'
@@ -7,24 +8,6 @@ const fakeExec = (exitCode: number, stdout: string): Exec => {
     options?.listeners?.stdout?.(Buffer.from(stdout))
     return Promise.resolve(exitCode)
   }
-}
-
-interface ExecCall {
-  commandLine: string
-  args: string[] | undefined
-}
-
-const recordingExec = (
-  exitCode: number,
-  stdout: string,
-): { exec: Exec; calls: ExecCall[] } => {
-  const calls: ExecCall[] = []
-  const exec: Exec = (commandLine, args, options) => {
-    calls.push({ commandLine, args })
-    options?.listeners?.stdout?.(Buffer.from(stdout))
-    return Promise.resolve(exitCode)
-  }
-  return { exec, calls }
 }
 
 describe('getChangedFiles', () => {

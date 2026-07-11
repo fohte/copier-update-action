@@ -12,30 +12,19 @@ interface ExecCall {
   ignoreReturnCode: boolean | undefined
 }
 
-interface ExecResponse {
-  exitCode: number
-  stdout?: Buffer
-}
-
 const recordingExec = (
-  responses: ExecResponse[],
+  exitCode: number,
+  stdout: string,
 ): { exec: Exec; calls: ExecCall[] } => {
   const calls: ExecCall[] = []
-  let i = 0
   const exec: Exec = (commandLine, args, options) => {
     calls.push({
       commandLine,
       args,
       ignoreReturnCode: options?.ignoreReturnCode,
     })
-    const response = responses[i++]
-    if (response === undefined) {
-      throw new Error(`unexpected exec call #${String(i)}: ${commandLine}`)
-    }
-    if (response.stdout !== undefined && options?.listeners?.stdout) {
-      options.listeners.stdout(response.stdout)
-    }
-    return Promise.resolve(response.exitCode)
+    options?.listeners?.stdout?.(Buffer.from(stdout))
+    return Promise.resolve(exitCode)
   }
   return { exec, calls }
 }
@@ -90,14 +79,6 @@ afterEach(() => {
   rmSync(tmpDir, { recursive: true, force: true })
 })
 
-const STATUS_ARGS = [
-  'status',
-  '--porcelain',
-  '-z',
-  '--untracked-files=all',
-  '--no-renames',
-]
-
 const grepArgs = (...paths: string[]): string[] => [
   '-c',
   'core.quotePath=false',
@@ -113,22 +94,14 @@ const grepArgs = (...paths: string[]): string[] => [
 ]
 
 describe('writeOutputs', () => {
-  it('emits changed=false and empty unresolved-files when no diff and no conflicts', async () => {
-    const { exec, calls } = recordingExec([
-      { exitCode: 0, stdout: Buffer.from('') },
-    ])
+  it('emits changed=false and empty unresolved-files, and skips git entirely, when there are no changed files', async () => {
+    const { exec, calls } = recordingExec(0, '')
 
-    await writeOutputs(exec)
+    await writeOutputs(exec, [])
 
     const actual = { calls, outputs: parseGithubOutput(outputPath) }
     expect(actual).toEqual({
-      calls: [
-        {
-          commandLine: 'git',
-          args: STATUS_ARGS,
-          ignoreReturnCode: true,
-        },
-      ],
+      calls: [],
       outputs: [
         { name: 'changed', value: 'false' },
         { name: 'unresolved-files', value: '' },
@@ -136,18 +109,14 @@ describe('writeOutputs', () => {
     })
   })
 
-  it('emits changed=true when only untracked files are added (no tracked diff)', async () => {
-    const { exec, calls } = recordingExec([
-      { exitCode: 0, stdout: Buffer.from('?? new-file.txt\0') },
-      { exitCode: 1, stdout: Buffer.from('') },
-    ])
+  it('emits changed=true when there are changed files with no remaining conflict markers', async () => {
+    const { exec, calls } = recordingExec(1, '')
 
-    await writeOutputs(exec)
+    await writeOutputs(exec, ['new-file.txt'])
 
     const actual = { calls, outputs: parseGithubOutput(outputPath) }
     expect(actual).toEqual({
       calls: [
-        { commandLine: 'git', args: STATUS_ARGS, ignoreReturnCode: true },
         {
           commandLine: 'git',
           args: grepArgs('new-file.txt'),
@@ -161,18 +130,14 @@ describe('writeOutputs', () => {
     })
   })
 
-  it('scopes the unresolved-files check to the files git status reports as changed', async () => {
-    const { exec, calls } = recordingExec([
-      { exitCode: 0, stdout: Buffer.from(' M a.txt\0M  sub/b.txt\0') },
-      { exitCode: 0, stdout: Buffer.from('a.txt\0sub/b.txt\0') },
-    ])
+  it('scopes the unresolved-files check to the given changed files and joins matches with newlines', async () => {
+    const { exec, calls } = recordingExec(0, 'a.txt\0sub/b.txt\0')
 
-    await writeOutputs(exec)
+    await writeOutputs(exec, ['a.txt', 'sub/b.txt'])
 
     const actual = { calls, outputs: parseGithubOutput(outputPath) }
     expect(actual).toEqual({
       calls: [
-        { commandLine: 'git', args: STATUS_ARGS, ignoreReturnCode: true },
         {
           commandLine: 'git',
           args: grepArgs('a.txt', 'sub/b.txt'),
@@ -186,11 +151,11 @@ describe('writeOutputs', () => {
     })
   })
 
-  it('throws when git status exits with a non-zero code', async () => {
+  it('throws when git grep exits with a non-recoverable code', async () => {
     const exec: Exec = () => Promise.resolve(128)
 
-    await expect(writeOutputs(exec)).rejects.toEqual(
-      new Error('git status --porcelain failed with exit code 128'),
+    await expect(writeOutputs(exec, ['a.txt'])).rejects.toEqual(
+      new Error('git grep failed with exit code 128'),
     )
   })
 })
