@@ -8,6 +8,7 @@ import {
   runCopierUpdate as defaultRunCopierUpdate,
 } from '@/copier'
 import type { Exec } from '@/exec'
+import { getChangedFiles as defaultGetChangedFiles } from '@/git'
 import {
   type Inputs,
   readInputs as defaultReadInputs,
@@ -38,7 +39,8 @@ export interface RunDeps {
     args: { targetVersion: string; copierVersion: string },
     exec: Exec,
   ) => Promise<void>
-  detectConflicts: (exec: Exec) => Promise<string[]>
+  getChangedFiles: (exec: Exec) => Promise<string[]>
+  detectConflicts: (exec: Exec, paths: string[]) => Promise<string[]>
   resolveConflicts: (filePaths: string[], mergirafBin: string) => Promise<void>
   writeOutputs: (exec: Exec) => Promise<void>
 }
@@ -85,7 +87,8 @@ export async function runWithDeps(deps: RunDeps): Promise<void> {
   )
 
   const conflictFiles = await withGroup('Detect conflicts', async () => {
-    const files = await deps.detectConflicts(deps.exec)
+    const changedFiles = await deps.getChangedFiles(deps.exec)
+    const files = await deps.detectConflicts(deps.exec, changedFiles)
     core.info(`detected ${String(files.length)} conflict file(s)`)
     return files
   })
@@ -109,6 +112,7 @@ export async function run(exec?: Exec): Promise<void> {
     installMergiraf: defaultInstallMergiraf,
     configureDiff3: defaultConfigureDiff3,
     runCopierUpdate: defaultRunCopierUpdate,
+    getChangedFiles: defaultGetChangedFiles,
     detectConflicts: defaultDetectConflicts,
     resolveConflicts: defaultResolveConflicts,
     writeOutputs: defaultWriteOutputs,

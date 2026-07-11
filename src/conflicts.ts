@@ -4,19 +4,29 @@ export type { Exec } from '@/exec'
 
 const CONFLICT_MARKER = '<<<<<<< before updating'
 
-export async function detectConflicts(exec: Exec): Promise<string[]> {
+export async function detectConflicts(
+  exec: Exec,
+  paths: string[],
+): Promise<string[]> {
+  if (paths.length === 0) {
+    return []
+  }
+
   const chunks: Buffer[] = []
   const exitCode = await exec(
     'git',
     [
       '-c',
       'core.quotePath=false',
+      '--literal-pathspecs',
       'grep',
       '--untracked',
       '-I',
       '-F',
       '-lz',
       CONFLICT_MARKER,
+      '--',
+      ...paths,
     ],
     {
       ignoreReturnCode: true,

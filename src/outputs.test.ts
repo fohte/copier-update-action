@@ -90,23 +90,32 @@ afterEach(() => {
   rmSync(tmpDir, { recursive: true, force: true })
 })
 
-const STATUS_ARGS = ['status', '--porcelain', '-z', '--untracked-files=all']
-const GREP_ARGS = [
+const STATUS_ARGS = [
+  'status',
+  '--porcelain',
+  '-z',
+  '--untracked-files=all',
+  '--no-renames',
+]
+
+const grepArgs = (...paths: string[]): string[] => [
   '-c',
   'core.quotePath=false',
+  '--literal-pathspecs',
   'grep',
   '--untracked',
   '-I',
   '-F',
   '-lz',
   '<<<<<<< before updating',
+  '--',
+  ...paths,
 ]
 
 describe('writeOutputs', () => {
   it('emits changed=false and empty unresolved-files when no diff and no conflicts', async () => {
     const { exec, calls } = recordingExec([
       { exitCode: 0, stdout: Buffer.from('') },
-      { exitCode: 1, stdout: Buffer.from('') },
     ])
 
     await writeOutputs(exec)
@@ -119,11 +128,6 @@ describe('writeOutputs', () => {
           args: STATUS_ARGS,
           ignoreReturnCode: true,
         },
-        {
-          commandLine: 'git',
-          args: GREP_ARGS,
-          ignoreReturnCode: true,
-        },
       ],
       outputs: [
         { name: 'changed', value: 'false' },
@@ -133,31 +137,53 @@ describe('writeOutputs', () => {
   })
 
   it('emits changed=true when only untracked files are added (no tracked diff)', async () => {
-    const { exec } = recordingExec([
+    const { exec, calls } = recordingExec([
       { exitCode: 0, stdout: Buffer.from('?? new-file.txt\0') },
       { exitCode: 1, stdout: Buffer.from('') },
     ])
 
     await writeOutputs(exec)
 
-    expect(parseGithubOutput(outputPath)).toEqual([
-      { name: 'changed', value: 'true' },
-      { name: 'unresolved-files', value: '' },
-    ])
+    const actual = { calls, outputs: parseGithubOutput(outputPath) }
+    expect(actual).toEqual({
+      calls: [
+        { commandLine: 'git', args: STATUS_ARGS, ignoreReturnCode: true },
+        {
+          commandLine: 'git',
+          args: grepArgs('new-file.txt'),
+          ignoreReturnCode: true,
+        },
+      ],
+      outputs: [
+        { name: 'changed', value: 'true' },
+        { name: 'unresolved-files', value: '' },
+      ],
+    })
   })
 
-  it('emits changed=true and joins unresolved files with newlines', async () => {
-    const { exec } = recordingExec([
-      { exitCode: 0, stdout: Buffer.from(' M a.txt\0') },
+  it('scopes the unresolved-files check to the files git status reports as changed', async () => {
+    const { exec, calls } = recordingExec([
+      { exitCode: 0, stdout: Buffer.from(' M a.txt\0M  sub/b.txt\0') },
       { exitCode: 0, stdout: Buffer.from('a.txt\0sub/b.txt\0') },
     ])
 
     await writeOutputs(exec)
 
-    expect(parseGithubOutput(outputPath)).toEqual([
-      { name: 'changed', value: 'true' },
-      { name: 'unresolved-files', value: 'a.txt\nsub/b.txt' },
-    ])
+    const actual = { calls, outputs: parseGithubOutput(outputPath) }
+    expect(actual).toEqual({
+      calls: [
+        { commandLine: 'git', args: STATUS_ARGS, ignoreReturnCode: true },
+        {
+          commandLine: 'git',
+          args: grepArgs('a.txt', 'sub/b.txt'),
+          ignoreReturnCode: true,
+        },
+      ],
+      outputs: [
+        { name: 'changed', value: 'true' },
+        { name: 'unresolved-files', value: 'a.txt\nsub/b.txt' },
+      ],
+    })
   })
 
   it('throws when git status exits with a non-zero code', async () => {
