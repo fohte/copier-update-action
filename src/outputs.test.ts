@@ -103,7 +103,7 @@ const GREP_ARGS = [
 ]
 
 describe('writeOutputs', () => {
-  it('emits changed=false and empty unresolved-files when no diff and no conflicts', async () => {
+  it('invokes git status and grep with the expected arguments', async () => {
     const { exec, calls } = recordingExec([
       { exitCode: 0, stdout: Buffer.from('') },
       { exitCode: 1, stdout: Buffer.from('') },
@@ -111,25 +111,32 @@ describe('writeOutputs', () => {
 
     await writeOutputs(exec)
 
-    const actual = { calls, outputs: parseGithubOutput(outputPath) }
-    expect(actual).toEqual({
-      calls: [
-        {
-          commandLine: 'git',
-          args: STATUS_ARGS,
-          ignoreReturnCode: true,
-        },
-        {
-          commandLine: 'git',
-          args: GREP_ARGS,
-          ignoreReturnCode: true,
-        },
-      ],
-      outputs: [
-        { name: 'changed', value: 'false' },
-        { name: 'unresolved-files', value: '' },
-      ],
-    })
+    expect(calls).toEqual([
+      {
+        commandLine: 'git',
+        args: STATUS_ARGS,
+        ignoreReturnCode: true,
+      },
+      {
+        commandLine: 'git',
+        args: GREP_ARGS,
+        ignoreReturnCode: true,
+      },
+    ])
+  })
+
+  it('emits changed=false and empty unresolved-files when no diff and no conflicts', async () => {
+    const { exec } = recordingExec([
+      { exitCode: 0, stdout: Buffer.from('') },
+      { exitCode: 1, stdout: Buffer.from('') },
+    ])
+
+    await writeOutputs(exec)
+
+    expect(parseGithubOutput(outputPath)).toEqual([
+      { name: 'changed', value: 'false' },
+      { name: 'unresolved-files', value: '' },
+    ])
   })
 
   it('emits changed=true when only untracked files are added (no tracked diff)', async () => {
