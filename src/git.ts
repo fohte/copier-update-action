@@ -24,7 +24,11 @@ export async function getChangedFiles(exec: Exec): Promise<string[]> {
 
   // Porcelain v1 entries are `XY PATH`; --no-renames guarantees one path per
   // NUL-terminated entry (renames would otherwise emit an extra old-path
-  // entry after the new one).
+  // entry after the new one). Deleted files (status `D`) are intentionally
+  // left in: they were real, previously-tracked paths, so passing them to
+  // `git grep` as a pathspec resolves to "no match" (exit 1) rather than
+  // the "pathspec did not match any files" fatal error that only occurs for
+  // paths git has never tracked.
   return Buffer.concat(chunks)
     .toString('utf8')
     .split('\0')
