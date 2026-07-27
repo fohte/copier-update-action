@@ -1,7 +1,7 @@
 {
   "name": "copier-update-action",
   "private": true,
-  "packageManager": "pnpm@11.15.0",
+  "packageManager": "pnpm@11.15.1",
   "type": "module",
   "scripts": {
     "build": "ncc build src/index.ts -o dist --source-map",
