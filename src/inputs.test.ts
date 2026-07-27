@@ -1,7 +1,8 @@
 import * as core from '@actions/core'
+import { err, ok } from 'neverthrow'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { type Inputs, readInputs, validateInputs } from '@/inputs'
+import { type Inputs, readInputs, validateInputs } from '#inputs'
 
 vi.mock('@actions/core', () => ({
   getInput: vi.fn(),
@@ -54,27 +55,28 @@ describe('validateInputs', () => {
     copierVersion: '',
   }
 
-  const run = (overrides: Partial<Inputs>) => () => {
+  const run = (overrides: Partial<Inputs>) =>
     validateInputs({ ...base, ...overrides })
-  }
 
   it('passes when all inputs are present', () => {
-    expect(
-      run({ githubToken: 'ghs_token', copierVersion: '9.4.1' }),
-    ).not.toThrow()
+    expect(run({ githubToken: 'ghs_token', copierVersion: '9.4.1' })).toEqual(
+      ok(undefined),
+    )
   })
 
   it('passes when only target-version is given', () => {
-    expect(run({})).not.toThrow()
+    expect(run({})).toEqual(ok(undefined))
   })
 
   it('passes when only github-token is given (target-version resolved at runtime)', () => {
-    expect(run({ targetVersion: '', githubToken: 'ghs_token' })).not.toThrow()
+    expect(run({ targetVersion: '', githubToken: 'ghs_token' })).toEqual(
+      ok(undefined),
+    )
   })
 
-  it('throws when template-repo is empty', () => {
-    expect(run({ templateRepo: '' })).toThrow(
-      new Error('`template-repo` input is required'),
+  it('returns an error when template-repo is empty', () => {
+    expect(run({ templateRepo: '' })).toEqual(
+      err(new Error('`template-repo` input is required')),
     )
   })
 
@@ -84,18 +86,25 @@ describe('validateInputs', () => {
     'fohte/.',
     'fohte/-repo',
     '-fohte/repo',
-  ])('throws when template-repo is not in owner/repo form: %s', (value) => {
-    expect(run({ templateRepo: value })).toThrow(
-      new Error(
-        `\`template-repo\` must be in \`owner/repo\` form (got: ${value})`,
-      ),
-    )
-  })
+  ])(
+    'returns an error when template-repo is not in owner/repo form: %s',
+    (value) => {
+      expect(run({ templateRepo: value })).toEqual(
+        err(
+          new Error(
+            `\`template-repo\` must be in \`owner/repo\` form (got: ${value})`,
+          ),
+        ),
+      )
+    },
+  )
 
-  it('throws when both target-version and github-token are empty', () => {
-    expect(run({ targetVersion: '', githubToken: '' })).toThrow(
-      new Error(
-        '`github-token` is required when `target-version` is empty (needed to resolve the latest release via gh)',
+  it('returns an error when both target-version and github-token are empty', () => {
+    expect(run({ targetVersion: '', githubToken: '' })).toEqual(
+      err(
+        new Error(
+          '`github-token` is required when `target-version` is empty (needed to resolve the latest release via gh)',
+        ),
       ),
     )
   })

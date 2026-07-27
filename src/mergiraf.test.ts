@@ -4,9 +4,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { addPath } from '@actions/core'
+import { ok, type Result } from 'neverthrow'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { type Exec, installMergiraf, MERGIRAF_VERSION } from '@/mergiraf'
+import { type Exec, installMergiraf, MERGIRAF_VERSION } from '#mergiraf'
 
 vi.mock('@actions/core', () => ({
   addPath: vi.fn(),
@@ -70,7 +71,7 @@ describe('installMergiraf on linux/x64', () => {
   let binDir: string
   let binPath: string
   let calls: ExecCall[]
-  let result: string
+  let result: Result<string, Error>
 
   beforeEach(async () => {
     stubPlatform('linux', 'x64')
@@ -82,7 +83,7 @@ describe('installMergiraf on linux/x64', () => {
   })
 
   it('returns the installed binary path', () => {
-    expect(result).toBe(binPath)
+    expect(result).toEqual(ok(binPath))
   })
 
   it('marks the binary as executable', async () => {
@@ -116,15 +117,11 @@ describe('installMergiraf on an unsupported platform', () => {
   const run = async (): Promise<string> => {
     const binPath = join(fakeHome, '.local', 'bin', 'mergiraf')
     const { exec } = createFakeExec(binPath)
-    try {
-      await installMergiraf(exec)
-      return ''
-    } catch (error) {
-      return error instanceof Error ? error.message : String(error)
-    }
+    const result = await installMergiraf(exec)
+    return result.isErr() ? result.error.message : ''
   }
 
-  it('rejects with a message naming the platform', async () => {
+  it('returns an error naming the platform', async () => {
     expect(await run()).toBe(
       'mergiraf: unsupported platform darwin/arm64 (only linux/x64 is supported)',
     )

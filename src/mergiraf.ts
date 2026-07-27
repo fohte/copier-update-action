@@ -3,20 +3,25 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 import * as core from '@actions/core'
+import { err, ok, type Result } from 'neverthrow'
 
-import type { Exec } from '@/exec'
+import type { Exec } from '#exec'
 
-export type { Exec } from '@/exec'
+export type { Exec } from '#exec'
 
 // renovate: datasource=github-releases depName=mergiraf/mergiraf
 export const MERGIRAF_VERSION = 'v0.17.0'
 
 const ASSET = 'mergiraf_x86_64-unknown-linux-gnu.tar.gz'
 
-export async function installMergiraf(exec: Exec): Promise<string> {
+export async function installMergiraf(
+  exec: Exec,
+): Promise<Result<string, Error>> {
   if (process.platform !== 'linux' || process.arch !== 'x64') {
-    throw new Error(
-      `mergiraf: unsupported platform ${process.platform}/${process.arch} (only linux/x64 is supported)`,
+    return err(
+      new Error(
+        `mergiraf: unsupported platform ${process.platform}/${process.arch} (only linux/x64 is supported)`,
+      ),
     )
   }
 
@@ -32,5 +37,5 @@ export async function installMergiraf(exec: Exec): Promise<string> {
   await chmod(binPath, 0o755)
   core.addPath(binDir)
 
-  return binPath
+  return ok(binPath)
 }

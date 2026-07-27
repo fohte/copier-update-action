@@ -1,11 +1,12 @@
 import * as core from '@actions/core'
+import { err, ok, type Result } from 'neverthrow'
 
-import { detectConflicts } from '@/conflicts'
-import type { Exec } from '@/exec'
+import { detectConflicts } from '#conflicts'
+import type { Exec } from '#exec'
 
-export type { Exec } from '@/exec'
+export type { Exec } from '#exec'
 
-export async function writeOutputs(exec: Exec): Promise<void> {
+export async function writeOutputs(exec: Exec): Promise<Result<void, Error>> {
   const chunks: Buffer[] = []
   const statusExitCode = await exec(
     'git',
@@ -20,13 +21,19 @@ export async function writeOutputs(exec: Exec): Promise<void> {
     },
   )
   if (statusExitCode !== 0) {
-    throw new Error(
-      `git status --porcelain failed with exit code ${String(statusExitCode)}`,
+    return err(
+      new Error(
+        `git status --porcelain failed with exit code ${String(statusExitCode)}`,
+      ),
     )
   }
   const changed = Buffer.concat(chunks).length > 0
   core.setOutput('changed', changed ? 'true' : 'false')
 
-  const unresolved = await detectConflicts(exec)
-  core.setOutput('unresolved-files', unresolved.join('\n'))
+  const unresolvedResult = await detectConflicts(exec)
+  if (unresolvedResult.isErr()) {
+    return err(unresolvedResult.error)
+  }
+  core.setOutput('unresolved-files', unresolvedResult.value.join('\n'))
+  return ok(undefined)
 }

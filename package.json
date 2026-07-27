@@ -4,6 +4,7 @@
   "packageManager": "pnpm@11.15.1",
   "type": "module",
   "imports": {
+    "#test/*": "./test/*.ts",
     "#*": "./src/*.ts"
   },
   "scripts": {
@@ -17,32 +18,28 @@
     "test:unit": "vitest run"
   },
   "dependencies": {
-<<<<<<< before updating
     "@actions/core": "3.0.1",
     "@actions/exec": "3.0.0",
     "@actions/github": "9.1.1",
     "diff": "9.0.0",
+    "neverthrow": "8.2.0",
     "semver": "7.8.5"
-||||||| last update
-=======
-    "neverthrow": "8.2.0"
->>>>>>> after updating
   },
   "devDependencies": {
-  "@commitlint/cli": "21.2.1",
-  "@eslint/eslintrc": "3.3.5",
-  "@fohte/eslint-config": "0.4.0",
-  "@ninoseki/eslint-plugin-neverthrow": "0.2.0",
-  "@tsconfig/node-lts": "24.0.0",
-  "@tsconfig/strictest": "2.0.8",
-  "@types/node": "24.13.3",
-  "@types/semver": "7.7.1",
-  "@vercel/ncc": "0.44.1",
-  "concurrently": "10.0.3",
-  "eslint": "10.6.0",
-  "prettier": "3.9.5",
-  "typescript": "6.0.3",
-  "vitest": "4.1.10"
-},
+    "@commitlint/cli": "21.2.1",
+    "@eslint/eslintrc": "3.3.5",
+    "@fohte/eslint-config": "0.4.0",
+    "@ninoseki/eslint-plugin-neverthrow": "0.2.0",
+    "@tsconfig/node-lts": "24.0.0",
+    "@tsconfig/strictest": "2.0.8",
+    "@types/node": "24.13.3",
+    "@types/semver": "7.7.1",
+    "@vercel/ncc": "0.44.1",
+    "concurrently": "10.0.3",
+    "eslint": "10.6.0",
+    "prettier": "3.9.5",
+    "typescript": "6.0.3",
+    "vitest": "4.1.10"
+  },
   "version": "0.1.4"
 }

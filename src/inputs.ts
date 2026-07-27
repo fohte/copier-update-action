@@ -1,4 +1,5 @@
 import * as core from '@actions/core'
+import { err, ok, type Result } from 'neverthrow'
 
 export interface Inputs {
   templateRepo: string
@@ -19,18 +20,23 @@ export function readInputs(): Inputs {
   }
 }
 
-export function validateInputs(inputs: Inputs): void {
+export function validateInputs(inputs: Inputs): Result<void, Error> {
   if (inputs.templateRepo === '') {
-    throw new Error('`template-repo` input is required')
+    return err(new Error('`template-repo` input is required'))
   }
   if (!OWNER_REPO_PATTERN.test(inputs.templateRepo)) {
-    throw new Error(
-      `\`template-repo\` must be in \`owner/repo\` form (got: ${inputs.templateRepo})`,
+    return err(
+      new Error(
+        `\`template-repo\` must be in \`owner/repo\` form (got: ${inputs.templateRepo})`,
+      ),
     )
   }
   if (inputs.targetVersion === '' && inputs.githubToken === '') {
-    throw new Error(
-      '`github-token` is required when `target-version` is empty (needed to resolve the latest release via gh)',
+    return err(
+      new Error(
+        '`github-token` is required when `target-version` is empty (needed to resolve the latest release via gh)',
+      ),
     )
   }
+  return ok(undefined)
 }

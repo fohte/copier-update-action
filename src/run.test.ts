@@ -1,8 +1,9 @@
+import { err, ok } from 'neverthrow'
 import { describe, expect, it } from 'vitest'
 
-import type { Inputs } from '@/inputs'
-import { type Exec, type RunDeps, runWithDeps } from '@/run'
-import type { GetLatestRelease } from '@/target-version'
+import type { Inputs } from '#inputs'
+import { type Exec, type RunDeps, runWithDeps } from '#run'
+import type { GetLatestRelease } from '#target-version'
 
 interface CallLog {
   steps: string[]
@@ -32,15 +33,16 @@ const makeDeps = (log: CallLog, overrides: Partial<RunDeps> = {}): RunDeps => {
     },
     validateInputs: () => {
       push('validateInputs')
+      return ok(undefined)
     },
     getLatestReleaseFactory: () => stubGetLatestRelease,
     resolveTargetVersion: () => {
       push('resolveTargetVersion')
-      return Promise.resolve('v1.2.3')
+      return Promise.resolve(ok('v1.2.3'))
     },
     installMergiraf: () => {
       push('installMergiraf')
-      return Promise.resolve('/usr/local/bin/mergiraf')
+      return Promise.resolve(ok('/usr/local/bin/mergiraf'))
     },
     configureDiff3: () => {
       push('configureDiff3')
@@ -52,7 +54,7 @@ const makeDeps = (log: CallLog, overrides: Partial<RunDeps> = {}): RunDeps => {
     },
     detectConflicts: () => {
       push('detectConflicts')
-      return Promise.resolve([])
+      return Promise.resolve(ok([]))
     },
     resolveConflicts: () => {
       push('resolveConflicts')
@@ -60,7 +62,7 @@ const makeDeps = (log: CallLog, overrides: Partial<RunDeps> = {}): RunDeps => {
     },
     writeOutputs: () => {
       push('writeOutputs')
-      return Promise.resolve()
+      return Promise.resolve(ok(undefined))
     },
     ...overrides,
   }
@@ -91,7 +93,7 @@ describe('runWithDeps', () => {
       makeDeps(log, {
         detectConflicts: () => {
           log.steps.push('detectConflicts')
-          return Promise.resolve(['a.txt', 'b.txt'])
+          return Promise.resolve(ok(['a.txt', 'b.txt']))
         },
         resolveConflicts: () => {
           log.steps.push('resolveConflicts')
@@ -119,7 +121,7 @@ describe('runWithDeps', () => {
 
     await runWithDeps(
       makeDeps(log, {
-        detectConflicts: () => Promise.resolve(['a.txt', 'b.txt']),
+        detectConflicts: () => Promise.resolve(ok(['a.txt', 'b.txt'])),
         resolveConflicts: (files, bin) => {
           resolveArgs = { files, bin }
           return Promise.resolve()
@@ -145,7 +147,7 @@ describe('runWithDeps', () => {
           githubToken: 'token',
           copierVersion: '9.0.0',
         }),
-        resolveTargetVersion: () => Promise.resolve('v9.9.9'),
+        resolveTargetVersion: () => Promise.resolve(ok('v9.9.9')),
         runCopierUpdate: (args) => {
           copierArgs = args
           return Promise.resolve()
@@ -167,6 +169,19 @@ describe('runWithDeps', () => {
       runWithDeps(
         makeDeps(log, {
           runCopierUpdate: () => Promise.reject(boom),
+        }),
+      ),
+    ).rejects.toBe(boom)
+  })
+
+  it('rejects with the wrapped error when a Result-returning step returns err', async () => {
+    const log: CallLog = { steps: [] }
+    const boom = new Error('boom')
+
+    await expect(
+      runWithDeps(
+        makeDeps(log, {
+          validateInputs: () => err(boom),
         }),
       ),
     ).rejects.toBe(boom)
