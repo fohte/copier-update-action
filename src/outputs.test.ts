@@ -2,9 +2,10 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+import { err } from 'neverthrow'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { type Exec, writeOutputs } from '@/outputs'
+import { type Exec, writeOutputs } from '#outputs'
 
 interface ExecCall {
   commandLine: string
@@ -167,11 +168,11 @@ describe('writeOutputs', () => {
     ])
   })
 
-  it('throws when git status exits with a non-zero code', async () => {
+  it('returns an error when git status exits with a non-zero code', async () => {
     const exec: Exec = () => Promise.resolve(128)
 
-    await expect(writeOutputs(exec)).rejects.toEqual(
-      new Error('git status --porcelain failed with exit code 128'),
+    expect(await writeOutputs(exec)).toEqual(
+      err(new Error('git status --porcelain failed with exit code 128')),
     )
   })
 })

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { resolveVersionConflicts } from '@/version-conflict'
+import { resolveVersionConflicts } from '#version-conflict'
 
 describe('resolveVersionConflicts', () => {
   it('adopts the after-updating version when it is newer than before-updating', () => {

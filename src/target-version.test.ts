@@ -1,6 +1,7 @@
+import { err, ok } from 'neverthrow'
 import { describe, expect, it } from 'vitest'
 
-import { type GetLatestRelease, resolveTargetVersion } from '@/target-version'
+import { type GetLatestRelease, resolveTargetVersion } from '#target-version'
 
 interface RecordedCall {
   owner: string
@@ -37,7 +38,7 @@ describe('resolveTargetVersion', () => {
       client,
     )
 
-    expect(result).toEqual('v9.9.9')
+    expect(result).toEqual(ok('v9.9.9'))
     expect(calls).toEqual([])
   })
 
@@ -52,7 +53,7 @@ describe('resolveTargetVersion', () => {
       client,
     )
 
-    expect(result).toEqual('v1.2.3')
+    expect(result).toEqual(ok('v1.2.3'))
     expect(calls).toEqual([{ owner: 'owner', repo: 'repo' }])
   })
 
@@ -68,22 +69,20 @@ describe('resolveTargetVersion', () => {
     ).rejects.toBe(error)
   })
 
-  it('throws when the client returns an empty tag_name', async () => {
+  it('returns an error when the client returns an empty tag_name', async () => {
     const { client } = recordingClient(() => ({ kind: 'ok', tagName: '' }))
 
-    const captured = await resolveTargetVersion(
+    const result = await resolveTargetVersion(
       { templateRepo: 'owner/repo', targetVersion: '' },
       client,
-    ).then(
-      (value) => ({ kind: 'resolved' as const, value }),
-      (error: unknown) => ({ kind: 'rejected' as const, error }),
     )
 
-    expect(captured).toEqual({
-      kind: 'rejected',
-      error: new Error(
-        'Failed to resolve latest release tag for owner/repo: empty tag_name',
+    expect(result).toEqual(
+      err(
+        new Error(
+          'Failed to resolve latest release tag for owner/repo: empty tag_name',
+        ),
       ),
-    })
+    )
   })
 })
