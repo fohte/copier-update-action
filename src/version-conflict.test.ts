@@ -5,13 +5,7 @@ import { resolveVersionConflicts } from '@/version-conflict'
 describe('resolveVersionConflicts', () => {
   it('adopts the after-updating version when it is newer than before-updating', () => {
     const input = `{
-<<<<<<< before updating
-  "version": "2.0.0"
-||||||| last update
-  "version": "1.0.0"
-=======
   "version": "3.0.0"
->>>>>>> after updating
 }
 `
     expect(resolveVersionConflicts(input)).toEqual(
@@ -24,13 +18,7 @@ describe('resolveVersionConflicts', () => {
 
   it('keeps the before-updating version when it is newer than after-updating (no downgrade)', () => {
     const input = `{
-<<<<<<< before updating
   "node": "26.1.0"
-||||||| last update
-  "node": "24.17.0"
-=======
-  "node": "24.18.0"
->>>>>>> after updating
 }
 `
     expect(resolveVersionConflicts(input)).toEqual(
@@ -175,21 +163,9 @@ shared: unchanged
 
   it('resolves multiple independent blocks in the same file', () => {
     const input = `a:
-<<<<<<< before updating
-version: 1.0.0
-||||||| last update
-version: 0.9.0
-=======
 version: 2.0.0
->>>>>>> after updating
 b:
-<<<<<<< before updating
 version: 5.0.0
-||||||| last update
-version: 4.0.0
-=======
-version: 4.5.0
->>>>>>> after updating
 `
     expect(resolveVersionConflicts(input)).toEqual(
       `a:

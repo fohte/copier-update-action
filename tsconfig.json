@@ -7,10 +7,19 @@
   "compilerOptions": {
     "module": "preserve",
     "moduleResolution": "bundler",
+<<<<<<< before updating
     "noEmit": true,
     "paths": {
       "@/*": ["./src/*"],
       "@test/*": ["./test/*"]
     }
+||||||| last update
+    "noEmit": true,
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+=======
+    "noEmit": true
+>>>>>>> after updating
   }
 }
