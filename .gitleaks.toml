@@ -1,0 +1,6 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "dist/index.js is an ncc-bundled build artifact; flagged strings are vendored library constants (e.g. the Azure Storage Emulator's well-known devstoreaccount1 key, compiled WASM bytecode), not secrets"
+paths = ['''(?:^|/)dist/index\.js$''']
