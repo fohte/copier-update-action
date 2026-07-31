@@ -101216,22 +101216,22 @@ const ASSET = 'mergiraf_x86_64-unknown-linux-gnu.tar.gz';
 function describeCaught(caught) {
     return caught instanceof Error ? caught.message : String(caught);
 }
-// The cache service can throw (e.g. service outage, duplicate reservation);
-// caching is an optimization, so any failure here must fall back to a
-// normal download rather than failing the whole action.
-async function restoreMergirafCache(binPath, cacheKey) {
-    const result = await index_cjs/* ResultAsync */.EN.fromPromise(restoreCache([binPath], cacheKey), (caught) => caught);
+// The cache service can throw (e.g. a transient service outage); caching is
+// an optimization, so any failure here must fall back to a normal download
+// rather than failing the whole action.
+async function warnOnCacheFailure(promise, failureMessage) {
+    const result = await index_cjs/* ResultAsync */.EN.fromPromise(promise, (caught) => caught);
     if (result.isErr()) {
-        warning(`mergiraf: failed to restore cache, falling back to download: ${describeCaught(result.error)}`);
-        return false;
+        warning(`mergiraf: ${failureMessage}: ${describeCaught(result.error)}`);
     }
-    return result.value !== undefined;
+    return result;
+}
+async function restoreMergirafCache(binPath, cacheKey) {
+    const result = await warnOnCacheFailure(restoreCache([binPath], cacheKey), 'failed to restore cache, falling back to download');
+    return result.isOk() && result.value !== undefined;
 }
 async function saveMergirafCache(binPath, cacheKey) {
-    const result = await index_cjs/* ResultAsync */.EN.fromPromise(cache_saveCache([binPath], cacheKey), (caught) => caught);
-    if (result.isErr()) {
-        warning(`mergiraf: failed to save cache: ${describeCaught(result.error)}`);
-    }
+    await warnOnCacheFailure(cache_saveCache([binPath], cacheKey), 'failed to save cache');
 }
 async function installMergiraf(exec) {
     if (process.platform !== 'linux' || process.arch !== 'x64') {

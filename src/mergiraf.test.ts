@@ -87,6 +87,7 @@ describe('installMergiraf on linux/x64', () => {
     stubPlatform('linux', 'x64')
     binDir = join(fakeHome, '.local', 'bin')
     binPath = join(binDir, 'mergiraf')
+    vi.mocked(restoreCache).mockResolvedValue(undefined)
     const fake = createFakeExec(binPath)
     calls = fake.calls
     result = await installMergiraf(fake.exec)
