@@ -1,8 +1,9 @@
+import { err, ok } from 'neverthrow'
 import { describe, expect, it } from 'vitest'
 
-import type { Inputs } from '@/inputs'
-import { type Exec, type RunDeps, runWithDeps } from '@/run'
-import type { GetLatestRelease } from '@/target-version'
+import type { Inputs } from '#inputs'
+import { type Exec, type RunDeps, runWithDeps } from '#run'
+import type { GetLatestRelease } from '#target-version'
 
 interface CallLog {
   steps: string[]
@@ -32,15 +33,16 @@ const makeDeps = (log: CallLog, overrides: Partial<RunDeps> = {}): RunDeps => {
     },
     validateInputs: () => {
       push('validateInputs')
+      return ok(undefined)
     },
     getLatestReleaseFactory: () => stubGetLatestRelease,
     resolveTargetVersion: () => {
       push('resolveTargetVersion')
-      return Promise.resolve('v1.2.3')
+      return Promise.resolve(ok('v1.2.3'))
     },
     installMergiraf: () => {
       push('installMergiraf')
-      return Promise.resolve('/usr/local/bin/mergiraf')
+      return Promise.resolve(ok('/usr/local/bin/mergiraf'))
     },
     configureDiff3: () => {
       push('configureDiff3')
@@ -52,11 +54,11 @@ const makeDeps = (log: CallLog, overrides: Partial<RunDeps> = {}): RunDeps => {
     },
     getChangedFiles: () => {
       push('getChangedFiles')
-      return Promise.resolve([])
+      return Promise.resolve(ok([]))
     },
     detectConflicts: () => {
       push('detectConflicts')
-      return Promise.resolve([])
+      return Promise.resolve(ok([]))
     },
     resolveConflicts: () => {
       push('resolveConflicts')
@@ -64,7 +66,7 @@ const makeDeps = (log: CallLog, overrides: Partial<RunDeps> = {}): RunDeps => {
     },
     writeOutputs: () => {
       push('writeOutputs')
-      return Promise.resolve()
+      return Promise.resolve(ok(undefined))
     },
     ...overrides,
   }
@@ -91,40 +93,51 @@ describe('runWithDeps', () => {
 
   it('invokes resolveConflicts when detectConflicts returns files', async () => {
     const log: CallLog = { steps: [] }
-    let resolveArgs: { files: string[]; bin: string } | undefined
 
     await runWithDeps(
       makeDeps(log, {
         detectConflicts: () => {
           log.steps.push('detectConflicts')
-          return Promise.resolve(['a.txt', 'b.txt'])
+          return Promise.resolve(ok(['a.txt', 'b.txt']))
         },
-        resolveConflicts: (files, bin) => {
+        resolveConflicts: () => {
           log.steps.push('resolveConflicts')
+          return Promise.resolve()
+        },
+      }),
+    )
+
+    expect(log.steps).toEqual([
+      'readInputs',
+      'validateInputs',
+      'resolveTargetVersion',
+      'installMergiraf',
+      'configureDiff3',
+      'runCopierUpdate',
+      'getChangedFiles',
+      'detectConflicts',
+      'resolveConflicts',
+      'writeOutputs',
+    ])
+  })
+
+  it('passes detected files and the installed mergiraf bin path to resolveConflicts', async () => {
+    const log: CallLog = { steps: [] }
+    let resolveArgs: { files: string[]; bin: string } | undefined
+
+    await runWithDeps(
+      makeDeps(log, {
+        detectConflicts: () => Promise.resolve(ok(['a.txt', 'b.txt'])),
+        resolveConflicts: (files, bin) => {
           resolveArgs = { files, bin }
           return Promise.resolve()
         },
       }),
     )
 
-    const actual = { steps: log.steps, resolveArgs }
-    expect(actual).toEqual({
-      steps: [
-        'readInputs',
-        'validateInputs',
-        'resolveTargetVersion',
-        'installMergiraf',
-        'configureDiff3',
-        'runCopierUpdate',
-        'getChangedFiles',
-        'detectConflicts',
-        'resolveConflicts',
-        'writeOutputs',
-      ],
-      resolveArgs: {
-        files: ['a.txt', 'b.txt'],
-        bin: '/usr/local/bin/mergiraf',
-      },
+    expect(resolveArgs).toEqual({
+      files: ['a.txt', 'b.txt'],
+      bin: '/usr/local/bin/mergiraf',
     })
   })
 
@@ -135,23 +148,20 @@ describe('runWithDeps', () => {
 
     await runWithDeps(
       makeDeps(log, {
-        getChangedFiles: () => Promise.resolve(['a.txt', 'b.txt']),
+        getChangedFiles: () => Promise.resolve(ok(['a.txt', 'b.txt'])),
         detectConflicts: (_exec, paths) => {
           detectPaths = paths
-          return Promise.resolve([])
+          return Promise.resolve(ok([]))
         },
         writeOutputs: (_exec, paths) => {
           writeOutputsPaths = paths
-          return Promise.resolve()
+          return Promise.resolve(ok(undefined))
         },
       }),
     )
 
-    const actual = { detectPaths, writeOutputsPaths }
-    expect(actual).toEqual({
-      detectPaths: ['a.txt', 'b.txt'],
-      writeOutputsPaths: ['a.txt', 'b.txt'],
-    })
+    expect(detectPaths).toEqual(['a.txt', 'b.txt'])
+    expect(writeOutputsPaths).toEqual(['a.txt', 'b.txt'])
   })
 
   it('passes resolved target version and copier version into runCopierUpdate', async () => {
@@ -166,7 +176,7 @@ describe('runWithDeps', () => {
           githubToken: 'token',
           copierVersion: '9.0.0',
         }),
-        resolveTargetVersion: () => Promise.resolve('v9.9.9'),
+        resolveTargetVersion: () => Promise.resolve(ok('v9.9.9')),
         runCopierUpdate: (args) => {
           copierArgs = args
           return Promise.resolve()
@@ -188,6 +198,19 @@ describe('runWithDeps', () => {
       runWithDeps(
         makeDeps(log, {
           runCopierUpdate: () => Promise.reject(boom),
+        }),
+      ),
+    ).rejects.toBe(boom)
+  })
+
+  it('rejects with the wrapped error when a Result-returning step returns err', async () => {
+    const log: CallLog = { steps: [] }
+    const boom = new Error('boom')
+
+    await expect(
+      runWithDeps(
+        makeDeps(log, {
+          validateInputs: () => err(boom),
         }),
       ),
     ).rejects.toBe(boom)

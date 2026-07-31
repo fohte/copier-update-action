@@ -1,7 +1,8 @@
-import { recordingExec } from '@test/exec'
+import { err, ok } from 'neverthrow'
 import { describe, expect, it } from 'vitest'
 
-import { detectConflicts, type Exec } from '@/conflicts'
+import { detectConflicts, type Exec } from '#conflicts'
+import { recordingExec } from '#test/exec'
 
 const fakeExec = (exitCode: number, stdout: string): Exec => {
   return (_commandLine, _args, options) => {
@@ -23,9 +24,8 @@ describe('detectConflicts', () => {
   it('returns empty array without invoking git when there are no paths to scan', async () => {
     const { exec, calls } = recordingExec(0, '')
 
-    const actual = { result: await detectConflicts(exec, []), calls }
-
-    expect(actual).toEqual({ result: [], calls: [] })
+    expect(await detectConflicts(exec, [])).toEqual(ok([]))
+    expect(calls).toEqual([])
   })
 
   it('scopes git grep to the given paths via a literal pathspec', async () => {
@@ -55,7 +55,9 @@ describe('detectConflicts', () => {
   })
 
   it('returns empty array when git grep finds no matches (exit code 1)', async () => {
-    expect(await detectConflicts(fakeExec(1, ''), ['src/foo.ts'])).toEqual([])
+    expect(await detectConflicts(fakeExec(1, ''), ['src/foo.ts'])).toEqual(
+      ok([]),
+    )
   })
 
   it('returns each NUL-separated entry as a separate element', async () => {
@@ -64,7 +66,7 @@ describe('detectConflicts', () => {
         fakeExec(0, 'src/foo.ts\0src/bar.ts\0tests/baz.test.ts\0'),
         ['src/foo.ts', 'src/bar.ts', 'tests/baz.test.ts'],
       ),
-    ).toEqual(['src/foo.ts', 'src/bar.ts', 'tests/baz.test.ts'])
+    ).toEqual(ok(['src/foo.ts', 'src/bar.ts', 'tests/baz.test.ts']))
   })
 
   it('preserves paths containing newline characters', async () => {
@@ -73,7 +75,7 @@ describe('detectConflicts', () => {
         'src/weird\nname.ts',
         'src/ok.ts',
       ]),
-    ).toEqual(['src/weird\nname.ts', 'src/ok.ts'])
+    ).toEqual(ok(['src/weird\nname.ts', 'src/ok.ts']))
   })
 
   it('preserves multi-byte characters split across stdout chunks', async () => {
@@ -85,12 +87,12 @@ describe('detectConflicts', () => {
         'src/日本語.ts',
         'src/ok.ts',
       ]),
-    ).toEqual(['src/日本語.ts', 'src/ok.ts'])
+    ).toEqual(ok(['src/日本語.ts', 'src/ok.ts']))
   })
 
-  it('throws when git grep exits with a non-recoverable code', async () => {
-    await expect(
-      detectConflicts(fakeExec(128, ''), ['src/foo.ts']),
-    ).rejects.toThrow(new Error('git grep failed with exit code 128'))
+  it('returns an error when git grep exits with a non-recoverable code', async () => {
+    expect(await detectConflicts(fakeExec(128, ''), ['src/foo.ts'])).toEqual(
+      err(new Error('git grep failed with exit code 128')),
+    )
   })
 })

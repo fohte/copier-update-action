@@ -1,8 +1,12 @@
-import type { Exec } from '@/exec'
+import { err, ok, type Result } from 'neverthrow'
 
-export type { Exec } from '@/exec'
+import type { Exec } from '#exec'
 
-export async function getChangedFiles(exec: Exec): Promise<string[]> {
+export type { Exec } from '#exec'
+
+export async function getChangedFiles(
+  exec: Exec,
+): Promise<Result<string[], Error>> {
   const chunks: Buffer[] = []
   const exitCode = await exec(
     'git',
@@ -17,8 +21,10 @@ export async function getChangedFiles(exec: Exec): Promise<string[]> {
     },
   )
   if (exitCode !== 0) {
-    throw new Error(
-      `git status --porcelain failed with exit code ${String(exitCode)}`,
+    return err(
+      new Error(
+        `git status --porcelain failed with exit code ${String(exitCode)}`,
+      ),
     )
   }
 
@@ -29,9 +35,11 @@ export async function getChangedFiles(exec: Exec): Promise<string[]> {
   // 1), not a fatal error, so callers don't need to filter deleted paths
   // out before passing them through as a pathspec (see
   // conflicts.integration.test.ts).
-  return Buffer.concat(chunks)
-    .toString('utf8')
-    .split('\0')
-    .filter((entry) => entry.length > 0)
-    .map((entry) => entry.slice(3))
+  return ok(
+    Buffer.concat(chunks)
+      .toString('utf8')
+      .split('\0')
+      .filter((entry) => entry.length > 0)
+      .map((entry) => entry.slice(3)),
+  )
 }

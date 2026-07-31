@@ -1,8 +1,12 @@
 {
   "name": "copier-update-action",
   "private": true,
-  "packageManager": "pnpm@11.9.0",
+  "packageManager": "pnpm@11.16.0",
   "type": "module",
+  "imports": {
+    "#test/*": "./test/*.ts",
+    "#*": "./src/*.ts"
+  },
   "scripts": {
     "build": "ncc build src/index.ts -o dist --source-map",
     "lint": "eslint .",
@@ -14,26 +18,29 @@
     "test:unit": "vitest run"
   },
   "dependencies": {
+    "@actions/cache": "6.2.0",
     "@actions/core": "3.0.1",
     "@actions/exec": "3.0.0",
     "@actions/github": "9.1.1",
     "diff": "9.0.0",
+    "neverthrow": "8.2.0",
     "semver": "7.8.5"
   },
   "devDependencies": {
-    "@commitlint/cli": "21.1.0",
+    "@commitlint/cli": "21.2.1",
     "@eslint/eslintrc": "3.3.5",
-    "@fohte/eslint-config": "0.3.5",
+    "@fohte/eslint-config": "0.4.0",
+    "@ninoseki/eslint-plugin-neverthrow": "0.2.0",
     "@tsconfig/node-lts": "24.0.0",
     "@tsconfig/strictest": "2.0.8",
-    "@types/node": "24.13.2",
+    "@types/node": "24.13.3",
     "@types/semver": "7.7.1",
     "@vercel/ncc": "0.44.1",
     "concurrently": "10.0.3",
     "eslint": "10.6.0",
-    "prettier": "3.9.4",
+    "prettier": "3.9.6",
     "typescript": "6.0.3",
-    "vitest": "4.1.9"
+    "vitest": "4.1.10"
   },
   "version": "0.1.4"
 }

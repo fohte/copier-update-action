@@ -1,15 +1,17 @@
-import type { Exec } from '@/exec'
+import { err, ok, type Result } from 'neverthrow'
 
-export type { Exec } from '@/exec'
+import type { Exec } from '#exec'
+
+export type { Exec } from '#exec'
 
 const CONFLICT_MARKER = '<<<<<<< before updating'
 
 export async function detectConflicts(
   exec: Exec,
   paths: string[],
-): Promise<string[]> {
+): Promise<Result<string[], Error>> {
   if (paths.length === 0) {
-    return []
+    return ok([])
   }
 
   const chunks: Buffer[] = []
@@ -39,14 +41,16 @@ export async function detectConflicts(
   )
 
   if (exitCode === 1) {
-    return []
+    return ok([])
   }
   if (exitCode !== 0) {
-    throw new Error(`git grep failed with exit code ${String(exitCode)}`)
+    return err(new Error(`git grep failed with exit code ${String(exitCode)}`))
   }
 
-  return Buffer.concat(chunks)
-    .toString('utf8')
-    .split('\0')
-    .filter((line) => line.length > 0)
+  return ok(
+    Buffer.concat(chunks)
+      .toString('utf8')
+      .split('\0')
+      .filter((line) => line.length > 0),
+  )
 }

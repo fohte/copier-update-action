@@ -4,10 +4,11 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { exec as actionsExec } from '@actions/exec'
+import { ok } from 'neverthrow'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { detectConflicts } from '@/conflicts'
-import type { Exec } from '@/exec'
+import { detectConflicts } from '#conflicts'
+import type { Exec } from '#exec'
 
 let tmpDir: string
 let exec: Exec
@@ -44,6 +45,6 @@ describe('detectConflicts (real git)', () => {
     )
     execFileSync('git', ['rm', '-q', 'a.txt'], { cwd: tmpDir })
 
-    await expect(detectConflicts(exec, ['a.txt'])).resolves.toEqual([])
+    await expect(detectConflicts(exec, ['a.txt'])).resolves.toEqual(ok([]))
   })
 })

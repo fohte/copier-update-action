@@ -1,6 +1,6 @@
-import type { Exec } from '@/exec'
+import type { Exec } from '#exec'
 
-export type { Exec } from '@/exec'
+export type { Exec } from '#exec'
 
 export async function configureDiff3(exec: Exec): Promise<void> {
   await exec('git', ['config', 'merge.conflictStyle', 'diff3'])

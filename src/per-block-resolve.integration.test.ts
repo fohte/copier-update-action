@@ -8,10 +8,10 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { MERGIRAF_BIN_PATH } from '@test/mergiraf-bin'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { resolveConflicts } from '@/per-block-resolve'
+import { resolveConflicts } from '#per-block-resolve'
+import { MERGIRAF_BIN_PATH } from '#test/mergiraf-bin'
 
 // Every input uses copier's real conflict-marker labels
 // (`<<<<<<< before updating` / `||||||| last update` / `=======` /

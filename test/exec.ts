@@ -1,4 +1,4 @@
-import type { Exec } from '@/exec'
+import type { Exec } from '#exec'
 
 export interface ExecCall {
   commandLine: string

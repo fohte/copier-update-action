@@ -1,4 +1,6 @@
-import type { Inputs } from '@/inputs'
+import { err, ok, type Result } from 'neverthrow'
+
+import type { Inputs } from '#inputs'
 
 export interface GetLatestRelease {
   (params: {
@@ -10,9 +12,9 @@ export interface GetLatestRelease {
 export async function resolveTargetVersion(
   inputs: Pick<Inputs, 'templateRepo' | 'targetVersion'>,
   getLatestRelease: GetLatestRelease,
-): Promise<string> {
+): Promise<Result<string, Error>> {
   if (inputs.targetVersion !== '') {
-    return inputs.targetVersion
+    return ok(inputs.targetVersion)
   }
 
   const slash = inputs.templateRepo.indexOf('/')
@@ -20,9 +22,11 @@ export async function resolveTargetVersion(
   const repo = inputs.templateRepo.slice(slash + 1)
   const { data } = await getLatestRelease({ owner, repo })
   if (data.tag_name === '') {
-    throw new Error(
-      `Failed to resolve latest release tag for ${inputs.templateRepo}: empty tag_name`,
+    return err(
+      new Error(
+        `Failed to resolve latest release tag for ${inputs.templateRepo}: empty tag_name`,
+      ),
     )
   }
-  return data.tag_name
+  return ok(data.tag_name)
 }

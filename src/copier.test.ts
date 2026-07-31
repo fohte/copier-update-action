@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { configureDiff3, type Exec, runCopierUpdate } from '@/copier'
+import { configureDiff3, type Exec, runCopierUpdate } from '#copier'
 
 interface ExecCall {
   commandLine: string
