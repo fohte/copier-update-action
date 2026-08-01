@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.5](https://github.com/fohte/copier-update-action/compare/v0.1.4...v0.1.5) (2026-08-01)
+
+
+### Features
+
+* **mergiraf:** cache the mergiraf binary via GitHub Actions cache ([#56](https://github.com/fohte/copier-update-action/issues/56)) ([5eb5429](https://github.com/fohte/copier-update-action/commit/5eb5429ec30fd65a84ce2579ae72930e0f26cc23))
+
+
+### Bug Fixes
+
+* **conflicts:** scope conflict detection to changed files ([#43](https://github.com/fohte/copier-update-action/issues/43)) ([5e6b168](https://github.com/fohte/copier-update-action/commit/5e6b168c207e1aad594b6e21d6fa56195bf65623))
+
 ## [0.1.4](https://github.com/fohte/copier-update-action/compare/v0.1.3...v0.1.4) (2026-07-08)
 
 
