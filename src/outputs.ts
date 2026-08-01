@@ -6,31 +6,13 @@ import type { Exec } from '#exec'
 
 export type { Exec } from '#exec'
 
-export async function writeOutputs(exec: Exec): Promise<Result<void, Error>> {
-  const chunks: Buffer[] = []
-  const statusExitCode = await exec(
-    'git',
-    ['status', '--porcelain', '-z', '--untracked-files=all'],
-    {
-      ignoreReturnCode: true,
-      listeners: {
-        stdout: (data: Buffer) => {
-          chunks.push(data)
-        },
-      },
-    },
-  )
-  if (statusExitCode !== 0) {
-    return err(
-      new Error(
-        `git status --porcelain failed with exit code ${String(statusExitCode)}`,
-      ),
-    )
-  }
-  const changed = Buffer.concat(chunks).length > 0
-  core.setOutput('changed', changed ? 'true' : 'false')
+export async function writeOutputs(
+  exec: Exec,
+  changedFiles: string[],
+): Promise<Result<void, Error>> {
+  core.setOutput('changed', changedFiles.length > 0 ? 'true' : 'false')
 
-  const unresolvedResult = await detectConflicts(exec)
+  const unresolvedResult = await detectConflicts(exec, changedFiles)
   if (unresolvedResult.isErr()) {
     return err(unresolvedResult.error)
   }

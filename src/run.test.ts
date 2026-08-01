@@ -52,6 +52,10 @@ const makeDeps = (log: CallLog, overrides: Partial<RunDeps> = {}): RunDeps => {
       push('runCopierUpdate')
       return Promise.resolve()
     },
+    getChangedFiles: () => {
+      push('getChangedFiles')
+      return Promise.resolve(ok([]))
+    },
     detectConflicts: () => {
       push('detectConflicts')
       return Promise.resolve(ok([]))
@@ -81,6 +85,7 @@ describe('runWithDeps', () => {
       'installMergiraf',
       'configureDiff3',
       'runCopierUpdate',
+      'getChangedFiles',
       'detectConflicts',
       'writeOutputs',
     ])
@@ -109,6 +114,7 @@ describe('runWithDeps', () => {
       'installMergiraf',
       'configureDiff3',
       'runCopierUpdate',
+      'getChangedFiles',
       'detectConflicts',
       'resolveConflicts',
       'writeOutputs',
@@ -133,6 +139,29 @@ describe('runWithDeps', () => {
       files: ['a.txt', 'b.txt'],
       bin: '/usr/local/bin/mergiraf',
     })
+  })
+
+  it('passes the files getChangedFiles reports to both detectConflicts and writeOutputs', async () => {
+    const log: CallLog = { steps: [] }
+    let detectPaths: string[] | undefined
+    let writeOutputsPaths: string[] | undefined
+
+    await runWithDeps(
+      makeDeps(log, {
+        getChangedFiles: () => Promise.resolve(ok(['a.txt', 'b.txt'])),
+        detectConflicts: (_exec, paths) => {
+          detectPaths = paths
+          return Promise.resolve(ok([]))
+        },
+        writeOutputs: (_exec, paths) => {
+          writeOutputsPaths = paths
+          return Promise.resolve(ok(undefined))
+        },
+      }),
+    )
+
+    expect(detectPaths).toEqual(['a.txt', 'b.txt'])
+    expect(writeOutputsPaths).toEqual(['a.txt', 'b.txt'])
   })
 
   it('passes resolved target version and copier version into runCopierUpdate', async () => {

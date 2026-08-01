@@ -8,19 +8,27 @@ const CONFLICT_MARKER = '<<<<<<< before updating'
 
 export async function detectConflicts(
   exec: Exec,
+  paths: string[],
 ): Promise<Result<string[], Error>> {
+  if (paths.length === 0) {
+    return ok([])
+  }
+
   const chunks: Buffer[] = []
   const exitCode = await exec(
     'git',
     [
       '-c',
       'core.quotePath=false',
+      '--literal-pathspecs',
       'grep',
       '--untracked',
       '-I',
       '-F',
       '-lz',
       CONFLICT_MARKER,
+      '--',
+      ...paths,
     ],
     {
       ignoreReturnCode: true,

@@ -9,6 +9,7 @@ import {
   runCopierUpdate as defaultRunCopierUpdate,
 } from '#copier'
 import type { Exec } from '#exec'
+import { getChangedFiles as defaultGetChangedFiles } from '#git'
 import {
   type Inputs,
   readInputs as defaultReadInputs,
@@ -39,9 +40,16 @@ export interface RunDeps {
     args: { targetVersion: string; copierVersion: string },
     exec: Exec,
   ) => Promise<void>
-  detectConflicts: (exec: Exec) => Promise<Result<string[], Error>>
+  getChangedFiles: (exec: Exec) => Promise<Result<string[], Error>>
+  detectConflicts: (
+    exec: Exec,
+    paths: string[],
+  ) => Promise<Result<string[], Error>>
   resolveConflicts: (filePaths: string[], mergirafBin: string) => Promise<void>
-  writeOutputs: (exec: Exec) => Promise<Result<void, Error>>
+  writeOutputs: (
+    exec: Exec,
+    changedFiles: string[],
+  ) => Promise<Result<void, Error>>
 }
 
 const defaultGetLatestReleaseFactory =
@@ -90,11 +98,19 @@ export async function runWithDeps(deps: RunDeps): Promise<void> {
     ),
   )
 
-  const conflictFiles = await withGroup('Detect conflicts', async () => {
-    const files = await unwrapOrReject(await deps.detectConflicts(deps.exec))
-    core.info(`detected ${String(files.length)} conflict file(s)`)
-    return files
-  })
+  const { changedFiles, conflictFiles } = await withGroup(
+    'Detect conflicts',
+    async () => {
+      const changed = await unwrapOrReject(
+        await deps.getChangedFiles(deps.exec),
+      )
+      const files = await unwrapOrReject(
+        await deps.detectConflicts(deps.exec, changed),
+      )
+      core.info(`detected ${String(files.length)} conflict file(s)`)
+      return { changedFiles: changed, conflictFiles: files }
+    },
+  )
 
   if (conflictFiles.length > 0) {
     await withGroup('Resolve conflicts', () =>
@@ -103,7 +119,7 @@ export async function runWithDeps(deps: RunDeps): Promise<void> {
   }
 
   await withGroup('Write outputs', async () =>
-    unwrapOrReject(await deps.writeOutputs(deps.exec)),
+    unwrapOrReject(await deps.writeOutputs(deps.exec, changedFiles)),
   )
 }
 
@@ -117,6 +133,7 @@ export async function run(exec?: Exec): Promise<void> {
     installMergiraf: defaultInstallMergiraf,
     configureDiff3: defaultConfigureDiff3,
     runCopierUpdate: defaultRunCopierUpdate,
+    getChangedFiles: defaultGetChangedFiles,
     detectConflicts: defaultDetectConflicts,
     resolveConflicts: defaultResolveConflicts,
     writeOutputs: defaultWriteOutputs,
