@@ -247,10 +247,6 @@ describe('resolveConflicts (real mergiraf binary)', () => {
 }
 `,
     )
-    expect(vi.mocked(info).mock.calls).toEqual([
-      ['resolved a version-only conflict via semver comparison'],
-      ['resolved'],
-    ])
   })
 
   it('keeps the before-updating version instead of downgrading when the repository is already ahead of the template', async () => {
@@ -277,10 +273,6 @@ describe('resolveConflicts (real mergiraf binary)', () => {
 }
 `,
     )
-    expect(vi.mocked(info).mock.calls).toEqual([
-      ['resolved a version-only conflict via semver comparison'],
-      ['resolved'],
-    ])
   })
 
   it('resolves a version-only line via the version-based fallback while leaving an unrelated repo-only addition unresolved, for a file mergiraf cannot parse', async () => {
@@ -319,33 +311,6 @@ shared: unchanged
 >>>>>>> after updating
 `,
     )
-    expect(vi.mocked(info).mock.calls).toEqual([
-      ['resolved a version-only conflict via semver comparison'],
-      ['unresolved: conflict markers remain (mergiraf exit 1)'],
-    ])
-  })
-
-  it('does not log a semver resolution when a block collapses to its common lines without comparing any version (e.g. a newly-templated file identical to the existing one)', async () => {
-    const file = join(tmpDir, 'notes.txt')
-    writeFileSync(
-      file,
-      `<<<<<<< before updating
-node_modules
-dist
-||||||| last update
-=======
-node_modules
-dist
->>>>>>> after updating
-`,
-    )
-
-    await resolveConflicts([file], MERGIRAF_BIN_PATH)
-
-    expect(readFileSync(file, 'utf8')).toEqual(`node_modules
-dist
-`)
-    expect(vi.mocked(info).mock.calls).toEqual([['resolved']])
   })
 
   it('does not corrupt the file when mergiraf cannot select a language parser for the extension', async () => {
@@ -390,5 +355,94 @@ alt content
     await resolveConflicts([file], MERGIRAF_BIN_PATH)
 
     expect(existsSync(`${file}.orig`)).toBe(false)
+  })
+})
+
+describe('resolveConflicts (real mergiraf binary) — semver resolution logging', () => {
+  let tmpDir: string
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'per-block-resolve-integration-'))
+    vi.mocked(info).mockClear()
+  })
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  it('logs the semver-resolution message when a version is actually adopted', async () => {
+    const file = join(tmpDir, 'package.json')
+    writeFileSync(
+      file,
+      `{
+<<<<<<< before updating
+  "packageManager": "pnpm@11.5.3",
+||||||| last update
+  "packageManager": "pnpm@11.5.2",
+=======
+  "packageManager": "pnpm@11.7.0",
+>>>>>>> after updating
+}
+`,
+    )
+
+    await resolveConflicts([file], MERGIRAF_BIN_PATH)
+
+    expect(vi.mocked(info).mock.calls).toEqual([
+      ['resolved a version-only conflict via semver comparison'],
+      ['resolved'],
+    ])
+  })
+
+  it('logs the semver-resolution message even when the same block still leaves an unrelated line unresolved', async () => {
+    const file = join(tmpDir, 'notes.txt')
+    writeFileSync(
+      file,
+      `# demo
+
+<<<<<<< before updating
+version: 2.0.0
+shared: unchanged
+extra: repo-only-line
+||||||| last update
+version: 1.0.0
+shared: unchanged
+=======
+version: 3.0.0
+shared: unchanged
+>>>>>>> after updating
+`,
+    )
+
+    await resolveConflicts([file], MERGIRAF_BIN_PATH)
+
+    expect(vi.mocked(info).mock.calls).toEqual([
+      ['resolved a version-only conflict via semver comparison'],
+      ['unresolved: conflict markers remain (mergiraf exit 1)'],
+    ])
+  })
+
+  it('does not log a semver resolution when a block only collapses to its common lines without comparing any version', async () => {
+    // e.g. a newly-templated file (empty base) whose before/after content is
+    // identical — mergiraf leaves the markers untouched (exit 1) and
+    // resolveVersionConflicts collapses the block via plain common-line
+    // extraction, never reaching pickNewerLine.
+    const file = join(tmpDir, 'notes.txt')
+    writeFileSync(
+      file,
+      `<<<<<<< before updating
+node_modules
+dist
+||||||| last update
+=======
+node_modules
+dist
+>>>>>>> after updating
+`,
+    )
+
+    await resolveConflicts([file], MERGIRAF_BIN_PATH)
+
+    expect(vi.mocked(info).mock.calls).toEqual([['resolved']])
   })
 })

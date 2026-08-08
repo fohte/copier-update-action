@@ -317,10 +317,9 @@ truncated, no closing markers
   })
 
   it('collapses a block to its common lines without counting it as a version resolution when before and after are identical', () => {
-    // Reproduces the copier-update-action bug where a newly-templated file
-    // (base empty) whose before/after content is identical collapses to
-    // plain content via diffArrays' common-part extraction alone — no line
-    // was ever picked by semver comparison.
+    // With an empty base, identical before/after lines surface as a single
+    // common diffArrays part, so the block collapses without ever reaching
+    // pickNewerLine.
     const input = `<<<<<<< before updating
 node_modules
 dist
