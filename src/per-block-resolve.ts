@@ -4,6 +4,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import * as core from '@actions/core'
 import { Result } from 'neverthrow'
 
+import { resolveJsonKeyConflicts } from '#json-key-conflict'
 import { resolveVersionConflicts } from '#version-conflict'
 
 // Anchored to a whole line (optionally CRLF) so a source file that merely
@@ -33,6 +34,30 @@ const writeConflictFile = Result.fromThrowable(
   },
   (caught: unknown) => caught,
 )
+
+// Runs one resolver stage: writes its output back to disk when it changed
+// anything, and falls back to the pre-stage content (rather than aborting
+// the rest of the pipeline) if the write itself fails.
+function applyResolver(
+  filePath: string,
+  content: string,
+  resolve: (content: string) => string,
+  label: string,
+): string {
+  const resolved = resolve(content)
+  if (resolved === content) return content
+
+  const writeResult = writeConflictFile(filePath, resolved)
+  if (writeResult.isErr()) {
+    const caught = writeResult.error
+    const detail = caught instanceof Error ? caught.message : String(caught)
+    core.warning(`failed to write ${filePath} after ${label}: ${detail}`)
+    return content
+  }
+
+  core.info(`resolved ${label}`)
+  return resolved
+}
 
 function resolveFile(filePath: string, mergirafBin: string): void {
   let exitStatus = 0
@@ -77,6 +102,20 @@ function resolveFile(filePath: string, mergirafBin: string): void {
     return
   }
   let content = readResult.value
+
+  // JSON key-level merge runs first so it can isolate a single genuinely
+  // conflicting key (e.g. a version string) away from keys that only one
+  // side touched; the version-conflict pass below then has a clean
+  // single-line block to resolve instead of a multi-key hunk it can't
+  // safely split.
+  if (CONFLICT_MARKER_RE.test(content)) {
+    content = applyResolver(
+      filePath,
+      content,
+      resolveJsonKeyConflicts,
+      'a package.json-style key conflict via key-level merge',
+    )
+  }
 
   if (CONFLICT_MARKER_RE.test(content)) {
     const { content: resolved, resolvedCount } =
