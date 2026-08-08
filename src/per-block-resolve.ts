@@ -79,7 +79,8 @@ function resolveFile(filePath: string, mergirafBin: string): void {
   let content = readResult.value
 
   if (CONFLICT_MARKER_RE.test(content)) {
-    const resolved = resolveVersionConflicts(content)
+    const { content: resolved, resolvedCount } =
+      resolveVersionConflicts(content)
     if (resolved !== content) {
       const writeResult = writeConflictFile(filePath, resolved)
       if (writeResult.isErr()) {
@@ -94,7 +95,9 @@ function resolveFile(filePath: string, mergirafBin: string): void {
         )
       } else {
         content = resolved
-        core.info('resolved a version-only conflict via semver comparison')
+        if (resolvedCount > 0) {
+          core.info('resolved a version-only conflict via semver comparison')
+        }
       }
     }
   }
