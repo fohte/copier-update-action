@@ -85,13 +85,19 @@ function pickNewerLine(before: string, after: string): string | null {
   return semver.gt(beforeVersion, afterVersion) ? before : after
 }
 
+interface BlockResolution {
+  lines: string[]
+  resolvedCount: number
+}
+
 function resolveBlockLines(
   before: string[],
   base: string[],
   after: string[],
-): string[] {
+): BlockResolution {
   const parts = diffArrays(before, after)
   const output: string[] = []
+  let resolvedCount = 0
   let i = 0
   while (i < parts.length) {
     const part = parts[i]
@@ -140,6 +146,7 @@ function resolveBlockLines(
 
     if (resolvedLine !== null) {
       output.push(resolvedLine)
+      resolvedCount++
     } else {
       // The unresolved slice reuses the whole original `base` section since
       // the diff against `before`/`after` doesn't track which base lines
@@ -157,7 +164,7 @@ function resolveBlockLines(
     }
     i += consumed
   }
-  return output
+  return { lines: output, resolvedCount }
 }
 
 /**
@@ -167,7 +174,14 @@ function resolveBlockLines(
  * version-only change (unparseable values, ambiguous multi-version lines,
  * or lines with no counterpart on the other side) are left conflicted.
  */
-export function resolveVersionConflicts(content: string): string {
+export interface VersionConflictResolution {
+  content: string
+  resolvedCount: number
+}
+
+export function resolveVersionConflicts(
+  content: string,
+): VersionConflictResolution {
   // mergiraf always emits LF, but the file it operates on may still be CRLF
   // (e.g. checked out with core.autocrlf or a CRLF gitattributes rule).
   // Splitting on '\n' alone would leave a trailing '\r' on every line,
@@ -177,6 +191,7 @@ export function resolveVersionConflicts(content: string): string {
 
   const lines = normalized.split('\n')
   const output: string[] = []
+  let resolvedCount = 0
   let i = 0
   while (i < lines.length) {
     const line = lines[i]
@@ -192,9 +207,18 @@ export function resolveVersionConflicts(content: string): string {
       i++
       continue
     }
-    output.push(...resolveBlockLines(block.before, block.base, block.after))
+    const blockResolution = resolveBlockLines(
+      block.before,
+      block.base,
+      block.after,
+    )
+    output.push(...blockResolution.lines)
+    resolvedCount += blockResolution.resolvedCount
     i = block.nextIndex
   }
   const resolved = output.join('\n')
-  return hasCrlf ? resolved.replace(/\n/g, '\r\n') : resolved
+  return {
+    content: hasCrlf ? resolved.replace(/\n/g, '\r\n') : resolved,
+    resolvedCount,
+  }
 }
