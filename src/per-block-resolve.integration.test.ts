@@ -336,6 +336,38 @@ alt content
     expect(readFileSync(file, 'utf8')).toEqual(input)
   })
 
+  it('resolves an added dependency bundled with an adjacent version bump in the same block (the crawlers case)', async () => {
+    const file = join(tmpDir, 'package.json')
+    writeFileSync(
+      file,
+      `{
+  "dependencies": {
+<<<<<<< before updating
+    "@fohte/ddr-score-manager-parser": "github:fohte/ddr-score-manager#path:/parser",
+    "@fohte/service-kit": "0.1.4",
+||||||| last update
+    "@fohte/service-kit": "0.1.4",
+=======
+    "@fohte/service-kit": "0.1.7",
+>>>>>>> after updating
+  }
+}
+`,
+    )
+
+    await resolveConflicts([file], MERGIRAF_BIN_PATH)
+
+    expect(readFileSync(file, 'utf8')).toEqual(
+      `{
+  "dependencies": {
+    "@fohte/ddr-score-manager-parser": "github:fohte/ddr-score-manager#path:/parser",
+    "@fohte/service-kit": "0.1.7"
+  }
+}
+`,
+    )
+  })
+
   it('does not leave a mergiraf .orig backup file behind after resolving conflicts', async () => {
     const file = join(tmpDir, 'package.json')
     writeFileSync(

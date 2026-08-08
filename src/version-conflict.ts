@@ -1,10 +1,13 @@
 import { diffArrays } from 'diff'
 import * as semver from 'semver'
 
-const BEFORE_MARKER = '<<<<<<< before updating'
-const BASE_MARKER = '||||||| last update'
-const SEP_MARKER = '======='
-const AFTER_MARKER = '>>>>>>> after updating'
+import {
+  AFTER_MARKER,
+  BASE_MARKER,
+  BEFORE_MARKER,
+  forEachConflictBlock,
+  SEP_MARKER,
+} from '#conflict-block'
 
 // Matches version-like tokens (e.g. `2.0.0`, `v6.0.2`, `2026.6.11`). The
 // segment count is unbounded so a longer dotted run (e.g. an IP address) is
@@ -22,52 +25,6 @@ const MAX_SEGMENTS_RE = /^v?\d+(?:\.\d+){0,2}(?:[-+][0-9A-Za-z.]+)?$/
 // Trailing whitespace between the operator and the version is skipped so it
 // doesn't mask the operator into an empty match.
 const PIN_PREFIX_RE = /([~^=<>!]+)\s*$/
-
-interface TakeResult {
-  taken: string[]
-  nextIndex: number
-}
-
-function takeUntil(
-  lines: string[],
-  start: number,
-  marker: string,
-): TakeResult | null {
-  const taken: string[] = []
-  let i = start
-  while (i < lines.length) {
-    const line = lines[i]
-    if (line === undefined) break
-    if (line === marker) {
-      return { taken, nextIndex: i + 1 }
-    }
-    taken.push(line)
-    i++
-  }
-  return null
-}
-
-interface ParsedBlock {
-  before: string[]
-  base: string[]
-  after: string[]
-  nextIndex: number
-}
-
-function readBlock(lines: string[], start: number): ParsedBlock | null {
-  const before = takeUntil(lines, start + 1, BASE_MARKER)
-  if (before === null) return null
-  const base = takeUntil(lines, before.nextIndex, SEP_MARKER)
-  if (base === null) return null
-  const after = takeUntil(lines, base.nextIndex, AFTER_MARKER)
-  if (after === null) return null
-  return {
-    before: before.taken,
-    base: base.taken,
-    after: after.taken,
-    nextIndex: after.nextIndex,
-  }
-}
 
 interface VersionMatch {
   version: string
@@ -204,43 +161,15 @@ export interface VersionConflictResolution {
 export function resolveVersionConflicts(
   content: string,
 ): VersionConflictResolution {
-  // mergiraf always emits LF, but the file it operates on may still be CRLF
-  // (e.g. checked out with core.autocrlf or a CRLF gitattributes rule).
-  // Splitting on '\n' alone would leave a trailing '\r' on every line,
-  // so BEFORE_MARKER and friends would never match.
-  const hasCrlf = content.includes('\r\n')
-  const normalized = hasCrlf ? content.replace(/\r\n/g, '\n') : content
-
-  const lines = normalized.split('\n')
-  const output: string[] = []
   let resolvedCount = 0
-  let i = 0
-  while (i < lines.length) {
-    const line = lines[i]
-    if (line === undefined) break
-    if (line !== BEFORE_MARKER) {
-      output.push(line)
-      i++
-      continue
-    }
-    const block = readBlock(lines, i)
-    if (block === null) {
-      output.push(line)
-      i++
-      continue
-    }
+  const resolvedContent = forEachConflictBlock(content, (block) => {
     const blockResolution = resolveBlockLines(
       block.before,
       block.base,
       block.after,
     )
-    output.push(...blockResolution.lines)
     resolvedCount += blockResolution.resolvedCount
-    i = block.nextIndex
-  }
-  const resolved = output.join('\n')
-  return {
-    content: hasCrlf ? resolved.replace(/\n/g, '\r\n') : resolved,
-    resolvedCount,
-  }
+    return blockResolution.lines
+  })
+  return { content: resolvedContent, resolvedCount }
 }
