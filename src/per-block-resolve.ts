@@ -4,6 +4,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import * as core from '@actions/core'
 import { Result } from 'neverthrow'
 
+import { resolveJsonKeyConflicts } from '#json-key-conflict'
 import { resolveVersionConflicts } from '#version-conflict'
 
 const CONFLICT_MARKER = '<<<<<<< before updating'
@@ -30,6 +31,30 @@ const writeConflictFile = Result.fromThrowable(
   },
   (caught: unknown) => caught,
 )
+
+// Runs one resolver stage: writes its output back to disk when it changed
+// anything, and falls back to the pre-stage content (rather than aborting
+// the rest of the pipeline) if the write itself fails.
+function applyResolver(
+  filePath: string,
+  content: string,
+  resolve: (content: string) => string,
+  label: string,
+): string {
+  const resolved = resolve(content)
+  if (resolved === content) return content
+
+  const writeResult = writeConflictFile(filePath, resolved)
+  if (writeResult.isErr()) {
+    const caught = writeResult.error
+    const detail = caught instanceof Error ? caught.message : String(caught)
+    core.warning(`failed to write ${filePath} after ${label}: ${detail}`)
+    return content
+  }
+
+  core.info(`resolved ${label}`)
+  return resolved
+}
 
 function resolveFile(filePath: string, mergirafBin: string): void {
   let exitStatus = 0
@@ -75,25 +100,27 @@ function resolveFile(filePath: string, mergirafBin: string): void {
   }
   let content = readResult.value
 
+  // JSON key-level merge runs first so it can isolate a single genuinely
+  // conflicting key (e.g. a version string) away from keys that only one
+  // side touched; the version-conflict pass below then has a clean
+  // single-line block to resolve instead of a multi-key hunk it can't
+  // safely split.
   if (content.includes(CONFLICT_MARKER)) {
-    const resolved = resolveVersionConflicts(content)
-    if (resolved !== content) {
-      const writeResult = writeConflictFile(filePath, resolved)
-      if (writeResult.isErr()) {
-        // Same rationale as the read above: keep the failure local to this
-        // file rather than aborting the rest of the conflict list. `content`
-        // is left at its pre-write value since the file on disk was not
-        // actually updated.
-        const caught = writeResult.error
-        const detail = caught instanceof Error ? caught.message : String(caught)
-        core.warning(
-          `failed to write ${filePath} after version-conflict resolution: ${detail}`,
-        )
-      } else {
-        content = resolved
-        core.info('resolved a version-only conflict via semver comparison')
-      }
-    }
+    content = applyResolver(
+      filePath,
+      content,
+      resolveJsonKeyConflicts,
+      'a package.json-style key conflict via key-level merge',
+    )
+  }
+
+  if (content.includes(CONFLICT_MARKER)) {
+    content = applyResolver(
+      filePath,
+      content,
+      resolveVersionConflicts,
+      'a version-only conflict via semver comparison',
+    )
   }
 
   if (content.includes(CONFLICT_MARKER)) {
