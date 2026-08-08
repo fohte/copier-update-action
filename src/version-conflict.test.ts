@@ -276,6 +276,37 @@ truncated, no closing markers
     )
   })
 
+  it('leaves the block untouched when mergiraf mis-pairs an unrelated key onto a differently-pinned value (basefmt#81)', () => {
+    // Reproduces https://github.com/fohte/basefmt/pull/81: mergiraf matched
+    // an unrelated `thiserror = "=2.0.1x"` pair to a `toml = "0.8"` line,
+    // producing a block that reads as "toml" on all three sides but pins
+    // the version differently between before (`0.8`) and after (`=2.0.19`).
+    const input = `<<<<<<< before updating
+toml = "0.8"
+||||||| last update
+toml = "=2.0.18"
+=======
+toml = "=2.0.19"
+>>>>>>> after updating
+`
+    expect(resolveVersionConflicts(input)).toEqual(input)
+  })
+
+  it('resolves a version bump when both sides keep the same pin operator', () => {
+    const input = `<<<<<<< before updating
+thiserror = "=2.0.18"
+||||||| last update
+thiserror = "=2.0.18"
+=======
+thiserror = "=2.0.19"
+>>>>>>> after updating
+`
+    expect(resolveVersionConflicts(input)).toEqual(
+      `thiserror = "=2.0.19"
+`,
+    )
+  })
+
   it('returns content unchanged when it has no conflict markers', () => {
     const input = `{
   "version": "1.0.0"

@@ -14,6 +14,13 @@ const AFTER_MARKER = '>>>>>>> after updating'
 const VERSION_TOKEN_RE = /v?\d+(?:\.\d+)+(?:[-+][0-9A-Za-z.]+)?/g
 const MAX_SEGMENTS_RE = /^v?\d+(?:\.\d+){0,2}(?:[-+][0-9A-Za-z.]+)?$/
 
+// The run of pin-range operator characters immediately preceding a version
+// token (e.g. `=2.0.19`, `^1.2.3`). mergiraf can mis-pair two unrelated
+// key-value lines that happen to end in a comparable version (see
+// pickNewerLine below); when it does, the value's pin syntax often still
+// betrays the mismatch even though the rest of the line reads as plausible.
+const PIN_PREFIX_RE = /[~^=<>!]*$/
+
 interface TakeResult {
   taken: string[]
   nextIndex: number
@@ -60,29 +67,42 @@ function readBlock(lines: string[], start: number): ParsedBlock | null {
   }
 }
 
-function extractSingleVersion(line: string): string | null {
-  const matches = line.match(VERSION_TOKEN_RE)
-  if (matches === null || matches.length !== 1) return null
-  const token = matches[0]
+interface VersionMatch {
+  version: string
+  pinPrefix: string
+}
+
+function matchSingleVersion(line: string): VersionMatch | null {
+  const matches = [...line.matchAll(VERSION_TOKEN_RE)]
+  if (matches.length !== 1) return null
+  const match = matches[0]
+  if (match === undefined) return null
+  const token = match[0]
   if (!MAX_SEGMENTS_RE.test(token)) return null
   // includePrerelease so a prerelease tag (e.g. `2.0.0-rc.1`) doesn't coerce
   // down to the same value as its stable counterpart (`2.0.0`) and get
   // treated as an equal, tie-broken-to-after version.
   const coerced = semver.coerce(token, { includePrerelease: true })
-  return coerced === null ? null : coerced.version
+  if (coerced === null) return null
+  const pinPrefix = PIN_PREFIX_RE.exec(line.slice(0, match.index))?.[0] ?? ''
+  return { version: coerced.version, pinPrefix }
 }
 
 /**
  * Picks whichever whole line embeds the semantically newer version, so a
  * winning line's unrelated content (e.g. a SHA pin next to a version
  * comment) travels with it instead of being reconstructed field-by-field.
- * Returns null when either side isn't a single unambiguous version.
+ * Returns null when either side isn't a single unambiguous version, or when
+ * the two sides pin the version differently (e.g. `= 2.0.19` vs a bare
+ * `0.8`) — that mismatch is the signature of mergiraf having paired up two
+ * unrelated fields rather than an actual version bump.
  */
 function pickNewerLine(before: string, after: string): string | null {
-  const beforeVersion = extractSingleVersion(before)
-  const afterVersion = extractSingleVersion(after)
-  if (beforeVersion === null || afterVersion === null) return null
-  return semver.gt(beforeVersion, afterVersion) ? before : after
+  const beforeMatch = matchSingleVersion(before)
+  const afterMatch = matchSingleVersion(after)
+  if (beforeMatch === null || afterMatch === null) return null
+  if (beforeMatch.pinPrefix !== afterMatch.pinPrefix) return null
+  return semver.gt(beforeMatch.version, afterMatch.version) ? before : after
 }
 
 function resolveBlockLines(
