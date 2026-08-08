@@ -15,11 +15,13 @@ const VERSION_TOKEN_RE = /v?\d+(?:\.\d+)+(?:[-+][0-9A-Za-z.]+)?/g
 const MAX_SEGMENTS_RE = /^v?\d+(?:\.\d+){0,2}(?:[-+][0-9A-Za-z.]+)?$/
 
 // The run of pin-range operator characters immediately preceding a version
-// token (e.g. `=2.0.19`, `^1.2.3`). mergiraf can mis-pair two unrelated
-// key-value lines that happen to end in a comparable version (see
+// token (e.g. `=2.0.19`, `^1.2.3`, `= 2.0.19`). mergiraf can mis-pair two
+// unrelated key-value lines that happen to end in a comparable version (see
 // pickNewerLine below); when it does, the value's pin syntax often still
 // betrays the mismatch even though the rest of the line reads as plausible.
-const PIN_PREFIX_RE = /[~^=<>!]*$/
+// Trailing whitespace between the operator and the version is skipped so it
+// doesn't mask the operator into an empty match.
+const PIN_PREFIX_RE = /([~^=<>!]+)\s*$/
 
 interface TakeResult {
   taken: string[]
@@ -84,7 +86,7 @@ function matchSingleVersion(line: string): VersionMatch | null {
   // treated as an equal, tie-broken-to-after version.
   const coerced = semver.coerce(token, { includePrerelease: true })
   if (coerced === null) return null
-  const pinPrefix = PIN_PREFIX_RE.exec(line.slice(0, match.index))?.[0] ?? ''
+  const pinPrefix = PIN_PREFIX_RE.exec(line.slice(0, match.index))?.[1] ?? ''
   return { version: coerced.version, pinPrefix }
 }
 
