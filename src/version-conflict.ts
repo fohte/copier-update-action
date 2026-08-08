@@ -1,10 +1,13 @@
 import { diffArrays } from 'diff'
 import * as semver from 'semver'
 
-const BEFORE_MARKER = '<<<<<<< before updating'
-const BASE_MARKER = '||||||| last update'
-const SEP_MARKER = '======='
-const AFTER_MARKER = '>>>>>>> after updating'
+import {
+  AFTER_MARKER,
+  BASE_MARKER,
+  BEFORE_MARKER,
+  readBlock,
+  SEP_MARKER,
+} from '#conflict-block'
 
 // Matches version-like tokens (e.g. `2.0.0`, `v6.0.2`, `2026.6.11`). The
 // segment count is unbounded so a longer dotted run (e.g. an IP address) is
@@ -13,52 +16,6 @@ const AFTER_MARKER = '>>>>>>> after updating'
 // faithfully instead of comparing a truncated prefix.
 const VERSION_TOKEN_RE = /v?\d+(?:\.\d+)+(?:[-+][0-9A-Za-z.]+)?/g
 const MAX_SEGMENTS_RE = /^v?\d+(?:\.\d+){0,2}(?:[-+][0-9A-Za-z.]+)?$/
-
-interface TakeResult {
-  taken: string[]
-  nextIndex: number
-}
-
-function takeUntil(
-  lines: string[],
-  start: number,
-  marker: string,
-): TakeResult | null {
-  const taken: string[] = []
-  let i = start
-  while (i < lines.length) {
-    const line = lines[i]
-    if (line === undefined) break
-    if (line === marker) {
-      return { taken, nextIndex: i + 1 }
-    }
-    taken.push(line)
-    i++
-  }
-  return null
-}
-
-interface ParsedBlock {
-  before: string[]
-  base: string[]
-  after: string[]
-  nextIndex: number
-}
-
-function readBlock(lines: string[], start: number): ParsedBlock | null {
-  const before = takeUntil(lines, start + 1, BASE_MARKER)
-  if (before === null) return null
-  const base = takeUntil(lines, before.nextIndex, SEP_MARKER)
-  if (base === null) return null
-  const after = takeUntil(lines, base.nextIndex, AFTER_MARKER)
-  if (after === null) return null
-  return {
-    before: before.taken,
-    base: base.taken,
-    after: after.taken,
-    nextIndex: after.nextIndex,
-  }
-}
 
 function extractSingleVersion(line: string): string | null {
   const matches = line.match(VERSION_TOKEN_RE)
