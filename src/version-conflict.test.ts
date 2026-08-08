@@ -14,12 +14,13 @@ describe('resolveVersionConflicts', () => {
 >>>>>>> after updating
 }
 `
-    expect(resolveVersionConflicts(input)).toEqual(
-      `{
+    expect(resolveVersionConflicts(input)).toEqual({
+      content: `{
   "version": "3.0.0"
 }
 `,
-    )
+      resolvedCount: 1,
+    })
   })
 
   it('keeps the before-updating version when it is newer than after-updating (no downgrade)', () => {
@@ -33,12 +34,13 @@ describe('resolveVersionConflicts', () => {
 >>>>>>> after updating
 }
 `
-    expect(resolveVersionConflicts(input)).toEqual(
-      `{
+    expect(resolveVersionConflicts(input)).toEqual({
+      content: `{
   "node": "26.1.0"
 }
 `,
-    )
+      resolvedCount: 1,
+    })
   })
 
   it('adopts the after-updating line when both sides resolve to the same version', () => {
@@ -50,8 +52,11 @@ describe('resolveVersionConflicts', () => {
   "version": "2.0.0"
 >>>>>>> after updating
 `
-    expect(resolveVersionConflicts(input)).toEqual(`  "version": "2.0.0"
-`)
+    expect(resolveVersionConflicts(input)).toEqual({
+      content: `  "version": "2.0.0"
+`,
+      resolvedCount: 1,
+    })
   })
 
   it('resolves a line by its version even when unrelated content (e.g. a SHA pin) also differs', () => {
@@ -63,10 +68,11 @@ describe('resolveVersionConflicts', () => {
         uses: actions/checkout@cccccccccccccccccccccccccccccccccccccccc # v7.0.0
 >>>>>>> after updating
 `
-    expect(resolveVersionConflicts(input)).toEqual(
-      `        uses: actions/checkout@cccccccccccccccccccccccccccccccccccccccc # v7.0.0
+    expect(resolveVersionConflicts(input)).toEqual({
+      content: `        uses: actions/checkout@cccccccccccccccccccccccccccccccccccccccc # v7.0.0
 `,
-    )
+      resolvedCount: 1,
+    })
   })
 
   it('leaves the block untouched when the differing values are not valid versions', () => {
@@ -78,7 +84,10 @@ describe('resolveVersionConflicts', () => {
   "description": "bar"
 >>>>>>> after updating
 `
-    expect(resolveVersionConflicts(input)).toEqual(input)
+    expect(resolveVersionConflicts(input)).toEqual({
+      content: input,
+      resolvedCount: 0,
+    })
   })
 
   it('leaves the block untouched when a line contains more than one version-like token', () => {
@@ -90,7 +99,10 @@ describe('resolveVersionConflicts', () => {
   "range": "1.2.3 - 5.0.0"
 >>>>>>> after updating
 `
-    expect(resolveVersionConflicts(input)).toEqual(input)
+    expect(resolveVersionConflicts(input)).toEqual({
+      content: input,
+      resolvedCount: 0,
+    })
   })
 
   it('keeps the stable before-updating version instead of downgrading to an equal-looking after-updating prerelease', () => {
@@ -102,8 +114,11 @@ describe('resolveVersionConflicts', () => {
   "version": "2.0.0-rc.1"
 >>>>>>> after updating
 `
-    expect(resolveVersionConflicts(input)).toEqual(`  "version": "2.0.0"
-`)
+    expect(resolveVersionConflicts(input)).toEqual({
+      content: `  "version": "2.0.0"
+`,
+      resolvedCount: 1,
+    })
   })
 
   it('leaves the block untouched when a differing value has more segments than semver can represent (e.g. an IP address)', () => {
@@ -115,7 +130,10 @@ describe('resolveVersionConflicts', () => {
   "gateway": "10.0.0.2"
 >>>>>>> after updating
 `
-    expect(resolveVersionConflicts(input)).toEqual(input)
+    expect(resolveVersionConflicts(input)).toEqual({
+      content: input,
+      resolvedCount: 0,
+    })
   })
 
   it('leaves a multi-line replaced run untouched rather than risk pairing reordered fields by position', () => {
@@ -130,7 +148,10 @@ a_key: 2.0.0
 b_key: 1.0.0
 >>>>>>> after updating
 `
-    expect(resolveVersionConflicts(input)).toEqual(input)
+    expect(resolveVersionConflicts(input)).toEqual({
+      content: input,
+      resolvedCount: 0,
+    })
   })
 
   it('leaves the whole hunk untouched when a resolvable line has no common anchor to separate it from an unrelated added line', () => {
@@ -143,7 +164,10 @@ alpha: 0.9.0
 alpha: 2.0.0
 >>>>>>> after updating
 `
-    expect(resolveVersionConflicts(input)).toEqual(input)
+    expect(resolveVersionConflicts(input)).toEqual({
+      content: input,
+      resolvedCount: 0,
+    })
   })
 
   it('resolves only the version-only line while leaving an unrelated repo-only addition conflicted', () => {
@@ -159,8 +183,8 @@ version: 3.0.0
 shared: unchanged
 >>>>>>> after updating
 `
-    expect(resolveVersionConflicts(input)).toEqual(
-      `version: 3.0.0
+    expect(resolveVersionConflicts(input)).toEqual({
+      content: `version: 3.0.0
 shared: unchanged
 <<<<<<< before updating
 extra: repo-only-line
@@ -170,7 +194,8 @@ shared: unchanged
 =======
 >>>>>>> after updating
 `,
-    )
+      resolvedCount: 1,
+    })
   })
 
   it('resolves multiple independent blocks in the same file', () => {
@@ -191,13 +216,14 @@ version: 4.0.0
 version: 4.5.0
 >>>>>>> after updating
 `
-    expect(resolveVersionConflicts(input)).toEqual(
-      `a:
+    expect(resolveVersionConflicts(input)).toEqual({
+      content: `a:
 version: 2.0.0
 b:
 version: 5.0.0
 `,
-    )
+      resolvedCount: 2,
+    })
   })
 
   it('reuses the whole base section for each separate unresolved slice within one block', () => {
@@ -217,8 +243,8 @@ version: 3.0.0
 anchor2
 >>>>>>> after updating
 `
-    expect(resolveVersionConflicts(input)).toEqual(
-      `<<<<<<< before updating
+    expect(resolveVersionConflicts(input)).toEqual({
+      content: `<<<<<<< before updating
 extra-front
 ||||||| last update
 anchor1
@@ -238,7 +264,8 @@ anchor2
 =======
 >>>>>>> after updating
 `,
-    )
+      resolvedCount: 1,
+    })
   })
 
   it('resolves a well-formed block and preserves an unclosed trailing marker sequence untouched', () => {
@@ -252,12 +279,13 @@ version: 2.0.0
 <<<<<<< before updating
 truncated, no closing markers
 `
-    expect(resolveVersionConflicts(input)).toEqual(
-      `version: 2.0.0
+    expect(resolveVersionConflicts(input)).toEqual({
+      content: `version: 2.0.0
 <<<<<<< before updating
 truncated, no closing markers
 `,
-    )
+      resolvedCount: 1,
+    })
   })
 
   it('resolves a conflict and preserves CRLF line endings', () => {
@@ -271,9 +299,10 @@ truncated, no closing markers
       '>>>>>>> after updating',
       '',
     ].join('\r\n')
-    expect(resolveVersionConflicts(input)).toEqual(
-      ['  "version": "2.0.0"', ''].join('\r\n'),
-    )
+    expect(resolveVersionConflicts(input)).toEqual({
+      content: ['  "version": "2.0.0"', ''].join('\r\n'),
+      resolvedCount: 1,
+    })
   })
 
   it('returns content unchanged when it has no conflict markers', () => {
@@ -281,6 +310,31 @@ truncated, no closing markers
   "version": "1.0.0"
 }
 `
-    expect(resolveVersionConflicts(input)).toEqual(input)
+    expect(resolveVersionConflicts(input)).toEqual({
+      content: input,
+      resolvedCount: 0,
+    })
+  })
+
+  it('collapses a block to its common lines without counting it as a version resolution when before and after are identical', () => {
+    // Reproduces the copier-update-action bug where a newly-templated file
+    // (base empty) whose before/after content is identical collapses to
+    // plain content via diffArrays' common-part extraction alone — no line
+    // was ever picked by semver comparison.
+    const input = `<<<<<<< before updating
+node_modules
+dist
+||||||| last update
+=======
+node_modules
+dist
+>>>>>>> after updating
+`
+    expect(resolveVersionConflicts(input)).toEqual({
+      content: `node_modules
+dist
+`,
+      resolvedCount: 0,
+    })
   })
 })

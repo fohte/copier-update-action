@@ -8,10 +8,18 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { info } from '@actions/core'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resolveConflicts } from '#per-block-resolve'
 import { MERGIRAF_BIN_PATH } from '#test/mergiraf-bin'
+
+vi.mock('@actions/core', () => ({
+  startGroup: vi.fn(),
+  endGroup: vi.fn(),
+  info: vi.fn(),
+  warning: vi.fn(),
+}))
 
 // Every input uses copier's real conflict-marker labels
 // (`<<<<<<< before updating` / `||||||| last update` / `=======` /
@@ -25,6 +33,7 @@ describe('resolveConflicts (real mergiraf binary)', () => {
 
   beforeEach(() => {
     tmpDir = mkdtempSync(join(tmpdir(), 'per-block-resolve-integration-'))
+    vi.mocked(info).mockClear()
   })
 
   afterEach(() => {
@@ -238,6 +247,10 @@ describe('resolveConflicts (real mergiraf binary)', () => {
 }
 `,
     )
+    expect(vi.mocked(info).mock.calls).toEqual([
+      ['resolved a version-only conflict via semver comparison'],
+      ['resolved'],
+    ])
   })
 
   it('keeps the before-updating version instead of downgrading when the repository is already ahead of the template', async () => {
@@ -264,6 +277,10 @@ describe('resolveConflicts (real mergiraf binary)', () => {
 }
 `,
     )
+    expect(vi.mocked(info).mock.calls).toEqual([
+      ['resolved a version-only conflict via semver comparison'],
+      ['resolved'],
+    ])
   })
 
   it('resolves a version-only line via the version-based fallback while leaving an unrelated repo-only addition unresolved, for a file mergiraf cannot parse', async () => {
@@ -302,6 +319,33 @@ shared: unchanged
 >>>>>>> after updating
 `,
     )
+    expect(vi.mocked(info).mock.calls).toEqual([
+      ['resolved a version-only conflict via semver comparison'],
+      ['unresolved: conflict markers remain (mergiraf exit 1)'],
+    ])
+  })
+
+  it('does not log a semver resolution when a block collapses to its common lines without comparing any version (e.g. a newly-templated file identical to the existing one)', async () => {
+    const file = join(tmpDir, 'notes.txt')
+    writeFileSync(
+      file,
+      `<<<<<<< before updating
+node_modules
+dist
+||||||| last update
+=======
+node_modules
+dist
+>>>>>>> after updating
+`,
+    )
+
+    await resolveConflicts([file], MERGIRAF_BIN_PATH)
+
+    expect(readFileSync(file, 'utf8')).toEqual(`node_modules
+dist
+`)
+    expect(vi.mocked(info).mock.calls).toEqual([['resolved']])
   })
 
   it('does not corrupt the file when mergiraf cannot select a language parser for the extension', async () => {
