@@ -45,7 +45,7 @@ describe('detectConflicts', () => {
           '-I',
           '-E',
           '-lz',
-          '^<<<<<<< before updating$',
+          '^<<<<<<< before updating\r?$',
           '--',
           'src/foo.ts',
           'docs/readme.md',

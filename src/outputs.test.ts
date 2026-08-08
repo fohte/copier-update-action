@@ -89,7 +89,7 @@ const grepArgs = (...paths: string[]): string[] => [
   '-I',
   '-E',
   '-lz',
-  '^<<<<<<< before updating$',
+  '^<<<<<<< before updating\r?$',
   '--',
   ...paths,
 ]

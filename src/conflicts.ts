@@ -8,8 +8,10 @@ const CONFLICT_MARKER = '<<<<<<< before updating'
 
 // git grep has no --line-regexp flag, so line-anchoring requires a regex
 // pattern instead of -F. CONFLICT_MARKER has no ERE metacharacters, so it's
-// safe to interpolate directly.
-const CONFLICT_MARKER_LINE_PATTERN = `^${CONFLICT_MARKER}$`
+// safe to interpolate directly. The trailing \r tolerates a CRLF working
+// tree: git's regex engine, unlike JS, doesn't treat \r as a line terminator
+// for $, so a bare $ would miss CRLF-terminated marker lines.
+const CONFLICT_MARKER_LINE_PATTERN = `^${CONFLICT_MARKER}\r?$`
 
 export async function detectConflicts(
   exec: Exec,
