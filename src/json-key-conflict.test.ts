@@ -32,6 +32,29 @@ describe('resolveJsonKeyConflicts', () => {
     )
   })
 
+  it('auto-resolves a key that only after-updating added, absent from both base and before-updating', () => {
+    const input = `{
+  "dependencies": {
+<<<<<<< before updating
+||||||| last update
+=======
+    "@fohte/new-dep": "1.0.0",
+>>>>>>> after updating
+    "@fohte/service-kit": "0.1.4"
+  }
+}
+`
+    expect(resolveJsonKeyConflicts(input)).toEqual(
+      `{
+  "dependencies": {
+    "@fohte/new-dep": "1.0.0",
+    "@fohte/service-kit": "0.1.4"
+  }
+}
+`,
+    )
+  })
+
   it('auto-resolves a key whose value changed only in after-updating, unchanged by before-updating', () => {
     const input = `{
   "dependencies": {
@@ -41,6 +64,31 @@ describe('resolveJsonKeyConflicts', () => {
     "@fohte/service-kit": "0.1.4",
 =======
     "@fohte/service-kit": "0.1.7",
+>>>>>>> after updating
+    "vitest": "4.1.9"
+  }
+}
+`
+    expect(resolveJsonKeyConflicts(input)).toEqual(
+      `{
+  "dependencies": {
+    "@fohte/service-kit": "0.1.7",
+    "vitest": "4.1.9"
+  }
+}
+`,
+    )
+  })
+
+  it('auto-resolves a key whose value changed only in before-updating, unchanged by after-updating', () => {
+    const input = `{
+  "dependencies": {
+<<<<<<< before updating
+    "@fohte/service-kit": "0.1.7",
+||||||| last update
+    "@fohte/service-kit": "0.1.4",
+=======
+    "@fohte/service-kit": "0.1.4",
 >>>>>>> after updating
     "vitest": "4.1.9"
   }
@@ -159,6 +207,25 @@ describe('resolveJsonKeyConflicts', () => {
     )
   })
 
+  it('auto-resolves a key deleted only in before-updating to a deletion, omitting the key line with no marker', () => {
+    const input = `{
+<<<<<<< before updating
+||||||| last update
+  "legacy": "true",
+=======
+  "legacy": "true",
+>>>>>>> after updating
+  "keep": "yes"
+}
+`
+    expect(resolveJsonKeyConflicts(input)).toEqual(
+      `{
+  "keep": "yes"
+}
+`,
+    )
+  })
+
   it('leaves the whole block untouched, markers included, when one line spans a multi-line nested object value', () => {
     const input = `{
 <<<<<<< before updating
@@ -225,6 +292,29 @@ describe('resolveJsonKeyConflicts', () => {
     "@fohte/service-kit": "0.1.7",
     "vitest": "4.1.9"
   }
+}
+`,
+    )
+  })
+
+  it('forces a trailing comma onto a kept before-updating line that was last in its own hunk, when after-updating adds a key right after it', () => {
+    const input = `{
+  "a": 1,
+<<<<<<< before updating
+  "b": 2
+||||||| last update
+  "b": 2
+=======
+  "b": 2,
+  "c": 3
+>>>>>>> after updating
+}
+`
+    expect(resolveJsonKeyConflicts(input)).toEqual(
+      `{
+  "a": 1,
+  "b": 2,
+  "c": 3
 }
 `,
     )
@@ -301,17 +391,17 @@ describe('resolveJsonKeyConflicts', () => {
   it('resolves a conflict block built from the shared #conflict-block marker constants', () => {
     const input = [
       BEFORE_MARKER,
-      '  "@fohte/service-kit": "0.1.4",',
       BASE_MARKER,
-      '  "@fohte/service-kit": "0.1.4",',
+      '  "legacy": "true",',
       SEP_MARKER,
-      '  "@fohte/service-kit": "0.1.7",',
+      '  "legacy": "true",',
       AFTER_MARKER,
+      '  "keep": "yes"',
       '}',
     ].join('\n')
 
     expect(resolveJsonKeyConflicts(input)).toEqual(
-      ['  "@fohte/service-kit": "0.1.7"', '}'].join('\n'),
+      ['  "keep": "yes"', '}'].join('\n'),
     )
   })
 })

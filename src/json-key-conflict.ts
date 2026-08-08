@@ -4,15 +4,16 @@ import {
   AFTER_MARKER,
   BASE_MARKER,
   BEFORE_MARKER,
-  readBlock,
+  forEachConflictBlock,
   SEP_MARKER,
 } from '#conflict-block'
 
-// Parses a single conflict-block line as a one-key JSON object fragment
-// (e.g. `  "foo": "1.0.0",` -> { foo: "1.0.0" }), so keys can be matched
-// across before/base/after independently of line position. Multi-line
-// values (nested objects/arrays spanning several lines) fail to parse this
-// way and correctly fall through to leaving the block untouched.
+// Parses a single conflict-block line, already comma-stripped by the caller
+// (parseKeyLines), as a one-key JSON object fragment (e.g.
+// `  "foo": "1.0.0"` -> { foo: "1.0.0" }), so keys can be matched across
+// before/base/after independently of line position. Multi-line values
+// (nested objects/arrays spanning several lines) fail to parse this way and
+// correctly fall through to leaving the block untouched.
 const parseLineAsEntry = Result.fromThrowable(
   (line: string) => JSON.parse(`{${line}}`) as unknown,
   () => null,
@@ -66,24 +67,18 @@ function parseKeyLines(lines: string[]): Map<string, LineEntry> | null {
   return map
 }
 
-interface Entry {
-  present: boolean
-  line: string
-  value: unknown
+function entriesEqual(
+  a: LineEntry | undefined,
+  b: LineEntry | undefined,
+): boolean {
+  if (a === undefined || b === undefined) return a === b
+  return deepEqual(a.value, b.value)
 }
 
-function getEntry(map: Map<string, LineEntry>, key: string): Entry {
-  const found = map.get(key)
-  return found === undefined
-    ? { present: false, line: '', value: undefined }
-    : { present: true, line: found.line, value: found.value }
-}
-
-function entriesEqual(a: Entry, b: Entry): boolean {
-  if (a.present !== b.present) return false
-  return !a.present || deepEqual(a.value, b.value)
-}
-
+// ponytail: after-only keys are appended at the end rather than at their
+// true relative position in `after`; upgrade to a proper LCS-based key-order
+// merge (like resolveBlockLines's diffArrays approach) if template-inserted
+// keys ever need to land at a specific position instead of the end.
 function orderedKeys(
   beforeMap: Map<string, LineEntry>,
   afterMap: Map<string, LineEntry>,
@@ -102,27 +97,33 @@ function orderedKeys(
 type KeyResolution =
   { kind: 'keep'; line: string } | { kind: 'omit' } | { kind: 'conflict' }
 
-function resolveKey(base: Entry, before: Entry, after: Entry): KeyResolution {
+function resolveKey(
+  base: LineEntry | undefined,
+  before: LineEntry | undefined,
+  after: LineEntry | undefined,
+): KeyResolution {
   if (entriesEqual(before, after)) {
-    return before.present
+    return before !== undefined
       ? { kind: 'keep', line: before.line }
       : { kind: 'omit' }
   }
   if (entriesEqual(base, before)) {
-    return after.present ? { kind: 'keep', line: after.line } : { kind: 'omit' }
+    return after !== undefined
+      ? { kind: 'keep', line: after.line }
+      : { kind: 'omit' }
   }
   if (entriesEqual(base, after)) {
-    return before.present
+    return before !== undefined
       ? { kind: 'keep', line: before.line }
       : { kind: 'omit' }
   }
   return { kind: 'conflict' }
 }
 
-// A block that is fully resolved (no residual conflict) replaces the
-// original marker text in place, so its last emitted line inherits whatever
-// trailing-comma convention the surrounding (untouched) object expects —
-// mid-object lines already carry the right comma from their source line.
+// Kept lines always get their comma forced on push (see the 'keep' branch
+// below); only the last line of a fully-resolved block gets its comma
+// corrected against what follows the block in the file, stripped if the
+// block is immediately followed by an object/array close.
 function endsEnclosure(nextLine: string | undefined): boolean {
   if (nextLine === undefined) return true
   const trimmed = nextLine.trim()
@@ -150,21 +151,21 @@ function resolveBlock(
   const output: string[] = []
   let hasConflict = false
   for (const key of orderedKeys(beforeMap, afterMap)) {
-    const beforeEntry = getEntry(beforeMap, key)
-    const baseEntry = getEntry(baseMap, key)
-    const afterEntry = getEntry(afterMap, key)
+    const beforeEntry = beforeMap.get(key)
+    const baseEntry = baseMap.get(key)
+    const afterEntry = afterMap.get(key)
     const resolution = resolveKey(baseEntry, beforeEntry, afterEntry)
 
     if (resolution.kind === 'keep') {
-      output.push(resolution.line)
+      output.push(withTrailingComma(resolution.line, true))
     } else if (resolution.kind === 'conflict') {
       hasConflict = true
       output.push(BEFORE_MARKER)
-      if (beforeEntry.present) output.push(beforeEntry.line)
+      if (beforeEntry !== undefined) output.push(beforeEntry.line)
       output.push(BASE_MARKER)
-      if (baseEntry.present) output.push(baseEntry.line)
+      if (baseEntry !== undefined) output.push(baseEntry.line)
       output.push(SEP_MARKER)
-      if (afterEntry.present) output.push(afterEntry.line)
+      if (afterEntry !== undefined) output.push(afterEntry.line)
       output.push(AFTER_MARKER)
     }
   }
@@ -188,49 +189,7 @@ function resolveBlock(
  * values) are left untouched.
  */
 export function resolveJsonKeyConflicts(content: string): string {
-  // mergiraf always emits LF, but the file it operates on may still be CRLF
-  // (e.g. checked out with core.autocrlf or a CRLF gitattributes rule).
-  const hasCrlf = content.includes('\r\n')
-  const normalized = hasCrlf ? content.replace(/\r\n/g, '\n') : content
-
-  const lines = normalized.split('\n')
-  const output: string[] = []
-  let i = 0
-  while (i < lines.length) {
-    const line = lines[i]
-    if (line === undefined) break
-    if (line !== BEFORE_MARKER) {
-      output.push(line)
-      i++
-      continue
-    }
-    const block = readBlock(lines, i)
-    if (block === null) {
-      output.push(line)
-      i++
-      continue
-    }
-    const resolved = resolveBlock(
-      block.before,
-      block.base,
-      block.after,
-      lines[block.nextIndex],
-    )
-    if (resolved === null) {
-      output.push(
-        BEFORE_MARKER,
-        ...block.before,
-        BASE_MARKER,
-        ...block.base,
-        SEP_MARKER,
-        ...block.after,
-        AFTER_MARKER,
-      )
-    } else {
-      output.push(...resolved)
-    }
-    i = block.nextIndex
-  }
-  const resolved = output.join('\n')
-  return hasCrlf ? resolved.replace(/\n/g, '\r\n') : resolved
+  return forEachConflictBlock(content, (block, nextLine) =>
+    resolveBlock(block.before, block.base, block.after, nextLine),
+  )
 }
