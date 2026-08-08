@@ -314,7 +314,10 @@ toml = "=2.0.18"
 toml = "=2.0.19"
 >>>>>>> after updating
 `
-    expect(resolveVersionConflicts(input)).toEqual(input)
+    expect(resolveVersionConflicts(input)).toEqual({
+      content: input,
+      resolvedCount: 0,
+    })
   })
 
   it('leaves the block untouched when a pin operator is separated from the version by whitespace', () => {
@@ -326,7 +329,10 @@ toml = "= 2.0.18"
 toml = "= 2.0.19"
 >>>>>>> after updating
 `
-    expect(resolveVersionConflicts(input)).toEqual(input)
+    expect(resolveVersionConflicts(input)).toEqual({
+      content: input,
+      resolvedCount: 0,
+    })
   })
 
   it('resolves a version bump when both sides keep the same pin operator', () => {
@@ -338,10 +344,11 @@ thiserror = "=2.0.18"
 thiserror = "=2.0.19"
 >>>>>>> after updating
 `
-    expect(resolveVersionConflicts(input)).toEqual(
-      `thiserror = "=2.0.19"
+    expect(resolveVersionConflicts(input)).toEqual({
+      content: `thiserror = "=2.0.19"
 `,
-    )
+      resolvedCount: 1,
+    })
   })
 
   it('returns content unchanged when it has no conflict markers', () => {
