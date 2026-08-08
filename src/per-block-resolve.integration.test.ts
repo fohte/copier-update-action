@@ -8,10 +8,16 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { info } from '@actions/core'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resolveConflicts } from '#per-block-resolve'
 import { MERGIRAF_BIN_PATH } from '#test/mergiraf-bin'
+
+vi.mock('@actions/core', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@actions/core')>()),
+  info: vi.fn(),
+}))
 
 // Every input uses copier's real conflict-marker labels
 // (`<<<<<<< before updating` / `||||||| last update` / `=======` /
@@ -25,6 +31,7 @@ describe('resolveConflicts (real mergiraf binary)', () => {
 
   beforeEach(() => {
     tmpDir = mkdtempSync(join(tmpdir(), 'per-block-resolve-integration-'))
+    vi.mocked(info).mockClear()
   })
 
   afterEach(() => {
@@ -346,5 +353,19 @@ alt content
     await resolveConflicts([file], MERGIRAF_BIN_PATH)
 
     expect(existsSync(`${file}.orig`)).toBe(false)
+  })
+
+  it('reports a file that only mentions the marker text mid-line as resolved, not as an unresolved conflict', async () => {
+    const file = join(tmpDir, 'notes.txt')
+    const input = `# demo
+
+The literal marker text is: <<<<<<< before updating
+`
+    writeFileSync(file, input)
+
+    await resolveConflicts([file], MERGIRAF_BIN_PATH)
+
+    expect(readFileSync(file, 'utf8')).toEqual(input)
+    expect(vi.mocked(info).mock.calls).toEqual([['resolved']])
   })
 })

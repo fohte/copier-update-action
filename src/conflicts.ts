@@ -6,6 +6,11 @@ export type { Exec } from '#exec'
 
 const CONFLICT_MARKER = '<<<<<<< before updating'
 
+// git grep has no --line-regexp flag, so line-anchoring requires a regex
+// pattern instead of -F. CONFLICT_MARKER has no ERE metacharacters, so it's
+// safe to interpolate directly.
+const CONFLICT_MARKER_LINE_PATTERN = `^${CONFLICT_MARKER}$`
+
 export async function detectConflicts(
   exec: Exec,
   paths: string[],
@@ -24,9 +29,9 @@ export async function detectConflicts(
       'grep',
       '--untracked',
       '-I',
-      '-F',
+      '-E',
       '-lz',
-      CONFLICT_MARKER,
+      CONFLICT_MARKER_LINE_PATTERN,
       '--',
       ...paths,
     ],

@@ -6,7 +6,10 @@ import { Result } from 'neverthrow'
 
 import { resolveVersionConflicts } from '#version-conflict'
 
-const CONFLICT_MARKER = '<<<<<<< before updating'
+// Anchored to a whole line (optionally CRLF) so a source file that merely
+// mentions the marker string (e.g. this constant, a test fixture) isn't
+// mistaken for an unresolved conflict.
+const CONFLICT_MARKER_RE = /^<<<<<<< before updating\r?$/m
 
 // mergiraf defaults --keep-backup to true, writing a `<file>.orig` copy of
 // the pre-resolution content that is never cleaned up and ends up committed
@@ -75,7 +78,7 @@ function resolveFile(filePath: string, mergirafBin: string): void {
   }
   let content = readResult.value
 
-  if (content.includes(CONFLICT_MARKER)) {
+  if (CONFLICT_MARKER_RE.test(content)) {
     const resolved = resolveVersionConflicts(content)
     if (resolved !== content) {
       const writeResult = writeConflictFile(filePath, resolved)
@@ -96,7 +99,7 @@ function resolveFile(filePath: string, mergirafBin: string): void {
     }
   }
 
-  if (content.includes(CONFLICT_MARKER)) {
+  if (CONFLICT_MARKER_RE.test(content)) {
     // Include the exit status so callers can distinguish "mergiraf gave up
     // without touching the file" (exit 1) from "mergiraf resolved some blocks
     // but left the rest as smaller markers" (exit 2).

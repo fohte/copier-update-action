@@ -87,9 +87,9 @@ const grepArgs = (...paths: string[]): string[] => [
   'grep',
   '--untracked',
   '-I',
-  '-F',
+  '-E',
   '-lz',
-  '<<<<<<< before updating',
+  '^<<<<<<< before updating$',
   '--',
   ...paths,
 ]
