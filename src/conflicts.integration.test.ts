@@ -47,4 +47,20 @@ describe('detectConflicts (real git)', () => {
 
     await expect(detectConflicts(exec, ['a.txt'])).resolves.toEqual(ok([]))
   })
+
+  it('detects a real conflict marker on a CRLF-terminated line', async () => {
+    const file = join(tmpDir, 'a.txt')
+    writeFileSync(file, 'hello\r\n<<<<<<< before updating\r\nworld\r\n')
+
+    await expect(detectConflicts(exec, ['a.txt'])).resolves.toEqual(
+      ok(['a.txt']),
+    )
+  })
+
+  it('does not flag a line that merely mentions the marker mid-line', async () => {
+    const file = join(tmpDir, 'a.txt')
+    writeFileSync(file, 'const x = "<<<<<<< before updating substring"\n')
+
+    await expect(detectConflicts(exec, ['a.txt'])).resolves.toEqual(ok([]))
+  })
 })

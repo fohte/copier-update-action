@@ -388,6 +388,20 @@ alt content
 
     expect(existsSync(`${file}.orig`)).toBe(false)
   })
+
+  it('reports a file that only mentions the marker text mid-line as resolved, not as an unresolved conflict', async () => {
+    const file = join(tmpDir, 'notes.txt')
+    const input = `# demo
+
+The literal marker text is: <<<<<<< before updating
+`
+    writeFileSync(file, input)
+
+    await resolveConflicts([file], MERGIRAF_BIN_PATH)
+
+    expect(readFileSync(file, 'utf8')).toEqual(input)
+    expect(vi.mocked(info).mock.calls).toEqual([['resolved']])
+  })
 })
 
 describe('resolveConflicts (real mergiraf binary) — semver resolution logging', () => {
