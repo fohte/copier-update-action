@@ -305,6 +305,45 @@ truncated, no closing markers
     })
   })
 
+  it('leaves the block untouched when the before/after values pin the version differently', () => {
+    const input = `<<<<<<< before updating
+toml = "0.8"
+||||||| last update
+toml = "=2.0.18"
+=======
+toml = "=2.0.19"
+>>>>>>> after updating
+`
+    expect(resolveVersionConflicts(input)).toEqual(input)
+  })
+
+  it('leaves the block untouched when a pin operator is separated from the version by whitespace', () => {
+    const input = `<<<<<<< before updating
+toml = "0.8"
+||||||| last update
+toml = "= 2.0.18"
+=======
+toml = "= 2.0.19"
+>>>>>>> after updating
+`
+    expect(resolveVersionConflicts(input)).toEqual(input)
+  })
+
+  it('resolves a version bump when both sides keep the same pin operator', () => {
+    const input = `<<<<<<< before updating
+thiserror = "=2.0.18"
+||||||| last update
+thiserror = "=2.0.18"
+=======
+thiserror = "=2.0.19"
+>>>>>>> after updating
+`
+    expect(resolveVersionConflicts(input)).toEqual(
+      `thiserror = "=2.0.19"
+`,
+    )
+  })
+
   it('returns content unchanged when it has no conflict markers', () => {
     const input = `{
   "version": "1.0.0"
