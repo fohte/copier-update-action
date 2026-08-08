@@ -115,12 +115,27 @@ function resolveFile(filePath: string, mergirafBin: string): void {
   }
 
   if (content.includes(CONFLICT_MARKER)) {
-    content = applyResolver(
-      filePath,
-      content,
-      resolveVersionConflicts,
-      'a version-only conflict via semver comparison',
-    )
+    const { content: resolved, resolvedCount } =
+      resolveVersionConflicts(content)
+    if (resolved !== content) {
+      const writeResult = writeConflictFile(filePath, resolved)
+      if (writeResult.isErr()) {
+        // Same rationale as the read above: keep the failure local to this
+        // file rather than aborting the rest of the conflict list. `content`
+        // is left at its pre-write value since the file on disk was not
+        // actually updated.
+        const caught = writeResult.error
+        const detail = caught instanceof Error ? caught.message : String(caught)
+        core.warning(
+          `failed to write ${filePath} after version-conflict resolution: ${detail}`,
+        )
+      } else {
+        content = resolved
+        if (resolvedCount > 0) {
+          core.info('resolved a version-only conflict via semver comparison')
+        }
+      }
+    }
   }
 
   if (content.includes(CONFLICT_MARKER)) {
