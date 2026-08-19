@@ -37,8 +37,8 @@ importers:
         specifier: 3.3.6
         version: 3.3.6(supports-color@10.2.2)
       '@fohte/eslint-config':
-        specifier: 0.4.0
-        version: 0.4.0(2803bda226d2de4597dae49e3db0f8dd)
+        specifier: 0.4.1
+        version: 0.4.1(2803bda226d2de4597dae49e3db0f8dd)
       '@ninoseki/eslint-plugin-neverthrow':
         specifier: 0.2.0
         version: 0.2.0(eslint@10.6.0(jiti@2.6.1)(supports-color@10.2.2))(typescript@6.0.3)
@@ -296,8 +296,8 @@ packages:
     resolution: {integrity: sha512-+CNAzxglkrpNf/kKywqQfk74QjtceuOE7Qm+AF8miRvPF/wmmK5+OJOgVh3AVTT3RP2mH3+FOaxlE5v72owk0A==}
     engines: {node: ^20.19.0 || ^22.13.0 || >=24}
 
-  '@fohte/eslint-config@0.4.0':
-    resolution: {integrity: sha512-po8eL4hrVhpkn97iU82ttnvMBTtmH7TNOmJz4DsTMTgEeIEDtFV8Pp8zBz2GfrEOLDTePYwiDnFW+LkPxmkGkw==}
+  '@fohte/eslint-config@0.4.1':
+    resolution: {integrity: sha512-mvF4IkJQOq7TH27XfTPBhQPK6MbPUWcSOQgJlL2QvIdH4AR350ajv+EXUc9f7loKIAlpRqBaKZvOehwLlWUvGA==}
     engines: {node: '>=20.19.0 || >=22.13.0'}
     peerDependencies:
       '@eslint-community/eslint-plugin-eslint-comments': ^4.0.0
@@ -309,9 +309,12 @@ packages:
       eslint-config-prettier: ^10.0.0
       eslint-plugin-import-x: ^4.0.0
       eslint-plugin-simple-import-sort: ^13.0.0
+      eslint-plugin-tailwindcss: ^4.0.0
       typescript: '>=5.0.0'
     peerDependenciesMeta:
       '@ninoseki/eslint-plugin-neverthrow':
+        optional: true
+      eslint-plugin-tailwindcss:
         optional: true
       typescript:
         optional: true
@@ -2004,7 +2007,7 @@ snapshots:
       '@eslint/core': 1.2.1
       levn: 0.4.1
 
-  '@fohte/eslint-config@0.4.0(2803bda226d2de4597dae49e3db0f8dd)':
+  '@fohte/eslint-config@0.4.1(2803bda226d2de4597dae49e3db0f8dd)':
     dependencies:
       '@eslint-community/eslint-plugin-eslint-comments': 4.7.2(eslint@10.6.0(jiti@2.6.1)(supports-color@10.2.2))
       '@typescript-eslint/eslint-plugin': 8.61.1(@typescript-eslint/parser@8.61.1(eslint@10.6.0(jiti@2.6.1)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@6.0.3))(eslint@10.6.0(jiti@2.6.1)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@6.0.3)
