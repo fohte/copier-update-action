@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.6](https://github.com/fohte/copier-update-action/compare/v0.1.5...v0.1.6) (2026-08-19)
+
+
+### Features
+
+* **conflicts:** resolve package.json conflicts key by key ([#62](https://github.com/fohte/copier-update-action/issues/62)) ([917dae7](https://github.com/fohte/copier-update-action/commit/917dae75bd67055cae2d4153a51a4c1fe150a14c))
+
+
+### Bug Fixes
+
+* **conflicts:** require a full-line match for marker detection ([#61](https://github.com/fohte/copier-update-action/issues/61)) ([296d14a](https://github.com/fohte/copier-update-action/commit/296d14a8c79114e1b3f3e5e5bc4ac4dfdd5a39b8))
+* **version-conflict:** log semver resolution only when a version was actually adopted ([#60](https://github.com/fohte/copier-update-action/issues/60)) ([4bd6d59](https://github.com/fohte/copier-update-action/commit/4bd6d5949fa6491fa98a95b4faf9734194227de4))
+* **version-conflict:** reject version pairs with mismatched pin operators ([#59](https://github.com/fohte/copier-update-action/issues/59)) ([b93a19f](https://github.com/fohte/copier-update-action/commit/b93a19f940393505a92a356a5aa3cd75d986104d))
+* **version-conflict:** sync tests with the object return shape ([#64](https://github.com/fohte/copier-update-action/issues/64)) ([b3e36bd](https://github.com/fohte/copier-update-action/commit/b3e36bdd1dddc833b4902e2960c261b1b5808e6a))
+
 ## [0.1.5](https://github.com/fohte/copier-update-action/compare/v0.1.4...v0.1.5) (2026-08-01)
 
 
