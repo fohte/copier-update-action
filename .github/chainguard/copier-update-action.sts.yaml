@@ -1,0 +1,6 @@
+issuer: https://token.actions.githubusercontent.com
+subject_pattern: ^repo:fohte@11088009/copier-update-action@1281334251:ref:refs/heads/.+$
+claim_pattern:
+  job_workflow_ref: ^fohte/copier-update-action/\.github/workflows/test\.yml@[^@]+$
+permissions:
+  contents: write
