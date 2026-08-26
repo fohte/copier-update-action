@@ -6,8 +6,14 @@ export async function configureDiff3(exec: Exec): Promise<void> {
   await exec('git', ['config', 'merge.conflictStyle', 'diff3'])
 }
 
+export interface CopierUpdateArgs {
+  targetVersion: string
+  copierVersion: string
+  extraData: string
+}
+
 export async function runCopierUpdate(
-  args: { targetVersion: string; copierVersion: string; extraData: string },
+  args: CopierUpdateArgs,
   exec: Exec,
 ): Promise<void> {
   const copierSpec = args.copierVersion

@@ -1,6 +1,7 @@
 import { err, ok } from 'neverthrow'
 import { describe, expect, it } from 'vitest'
 
+import type { CopierUpdateArgs } from '#copier'
 import type { Inputs } from '#inputs'
 import { type Exec, type RunDeps, runWithDeps } from '#run'
 import type { GetLatestRelease } from '#target-version'
@@ -167,9 +168,7 @@ describe('runWithDeps', () => {
 
   it('passes resolved target version, copier version, and extra data into runCopierUpdate', async () => {
     const log: CallLog = { steps: [] }
-    let copierArgs:
-      | { targetVersion: string; copierVersion: string; extraData: string }
-      | undefined
+    let copierArgs: CopierUpdateArgs | undefined
 
     await runWithDeps(
       makeDeps(log, {
