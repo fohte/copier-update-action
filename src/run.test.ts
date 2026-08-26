@@ -19,6 +19,7 @@ const defaultInputs: Inputs = {
   targetVersion: 'v1.2.3',
   githubToken: '',
   copierVersion: '',
+  extraData: '',
 }
 
 const makeDeps = (log: CallLog, overrides: Partial<RunDeps> = {}): RunDeps => {
@@ -164,9 +165,11 @@ describe('runWithDeps', () => {
     expect(writeOutputsPaths).toEqual(['a.txt', 'b.txt'])
   })
 
-  it('passes resolved target version and copier version into runCopierUpdate', async () => {
+  it('passes resolved target version, copier version, and extra data into runCopierUpdate', async () => {
     const log: CallLog = { steps: [] }
-    let copierArgs: { targetVersion: string; copierVersion: string } | undefined
+    let copierArgs:
+      | { targetVersion: string; copierVersion: string; extraData: string }
+      | undefined
 
     await runWithDeps(
       makeDeps(log, {
@@ -175,6 +178,7 @@ describe('runWithDeps', () => {
           targetVersion: '',
           githubToken: 'token',
           copierVersion: '9.0.0',
+          extraData: 'repo_id=999999',
         }),
         resolveTargetVersion: () => Promise.resolve(ok('v9.9.9')),
         runCopierUpdate: (args) => {
@@ -187,6 +191,7 @@ describe('runWithDeps', () => {
     expect(copierArgs).toEqual({
       targetVersion: 'v9.9.9',
       copierVersion: '9.0.0',
+      extraData: 'repo_id=999999',
     })
   })
 

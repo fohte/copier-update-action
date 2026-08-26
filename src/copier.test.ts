@@ -34,7 +34,7 @@ describe('runCopierUpdate', () => {
     const calls: ExecCall[] = []
 
     await runCopierUpdate(
-      { targetVersion: 'v1.2.3', copierVersion: '' },
+      { targetVersion: 'v1.2.3', copierVersion: '', extraData: '' },
       recordingExec(calls),
     )
 
@@ -58,7 +58,7 @@ describe('runCopierUpdate', () => {
     const calls: ExecCall[] = []
 
     await runCopierUpdate(
-      { targetVersion: 'v1.2.3', copierVersion: '9.0.0' },
+      { targetVersion: 'v1.2.3', copierVersion: '9.0.0', extraData: '' },
       recordingExec(calls),
     )
 
@@ -78,12 +78,77 @@ describe('runCopierUpdate', () => {
     ])
   })
 
+  it('passes each extraData line as a repeated --data flag', async () => {
+    const calls: ExecCall[] = []
+
+    await runCopierUpdate(
+      {
+        targetVersion: 'v1.2.3',
+        copierVersion: '',
+        extraData: 'repo_id=999999\nfoo=bar',
+      },
+      recordingExec(calls),
+    )
+
+    expect(calls).toEqual([
+      {
+        commandLine: 'pipx',
+        args: [
+          'run',
+          'copier',
+          'update',
+          '--trust',
+          '--defaults',
+          '--vcs-ref',
+          'v1.2.3',
+          '--data',
+          'repo_id=999999',
+          '--data',
+          'foo=bar',
+        ],
+      },
+    ])
+  })
+
+  it('ignores blank lines and surrounding whitespace in extraData', async () => {
+    const calls: ExecCall[] = []
+
+    await runCopierUpdate(
+      {
+        targetVersion: 'v1.2.3',
+        copierVersion: '',
+        extraData: '\n  repo_id=999999  \n\n',
+      },
+      recordingExec(calls),
+    )
+
+    expect(calls).toEqual([
+      {
+        commandLine: 'pipx',
+        args: [
+          'run',
+          'copier',
+          'update',
+          '--trust',
+          '--defaults',
+          '--vcs-ref',
+          'v1.2.3',
+          '--data',
+          'repo_id=999999',
+        ],
+      },
+    ])
+  })
+
   it('propagates non-zero exit from copier as a thrown error', async () => {
     const exec: Exec = () =>
       Promise.reject(new Error('copier failed with exit code 1'))
 
     await expect(
-      runCopierUpdate({ targetVersion: 'v1.2.3', copierVersion: '' }, exec),
+      runCopierUpdate(
+        { targetVersion: 'v1.2.3', copierVersion: '', extraData: '' },
+        exec,
+      ),
     ).rejects.toEqual(new Error('copier failed with exit code 1'))
   })
 })

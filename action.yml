@@ -31,6 +31,13 @@ inputs:
       `pipx run copier` (latest) is used.
     required: false
     default: ''
+  extra-data:
+    description: |
+      Newline-separated `key=value` pairs passed to `copier update` as
+      repeated `--data key=value` flags. Use this to answer questions that
+      `--defaults` alone can't fill in.
+    required: false
+    default: ''
 
 outputs:
   target-version:

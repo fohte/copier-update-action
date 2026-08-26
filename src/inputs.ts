@@ -6,6 +6,7 @@ export interface Inputs {
   targetVersion: string
   githubToken: string
   copierVersion: string
+  extraData: string
 }
 
 const OWNER_REPO_PATTERN =
@@ -17,6 +18,7 @@ export function readInputs(): Inputs {
     targetVersion: core.getInput('target-version'),
     githubToken: core.getInput('github-token'),
     copierVersion: core.getInput('copier-version'),
+    extraData: core.getInput('extra-data'),
   }
 }
 

@@ -37,7 +37,7 @@ export interface RunDeps {
   installMergiraf: (exec: Exec) => Promise<Result<string, Error>>
   configureDiff3: (exec: Exec) => Promise<void>
   runCopierUpdate: (
-    args: { targetVersion: string; copierVersion: string },
+    args: { targetVersion: string; copierVersion: string; extraData: string },
     exec: Exec,
   ) => Promise<void>
   getChangedFiles: (exec: Exec) => Promise<Result<string[], Error>>
@@ -93,7 +93,11 @@ export async function runWithDeps(deps: RunDeps): Promise<void> {
 
   await withGroup('Run copier update', () =>
     deps.runCopierUpdate(
-      { targetVersion, copierVersion: inputs.copierVersion },
+      {
+        targetVersion,
+        copierVersion: inputs.copierVersion,
+        extraData: inputs.extraData,
+      },
       deps.exec,
     ),
   )

@@ -27,8 +27,19 @@ The net effect is that PRs which previously needed manual conflict resolution of
 | `target-version` | no          | (latest) | ref passed to `copier update --vcs-ref`. When empty, the action resolves the latest release via `gh`.      |
 | `github-token`   | conditional | —        | token used by `gh release view` when `target-version` is empty. Needs `contents: read` on `template-repo`. |
 | `copier-version` | no          | (latest) | passed to `pipx run copier==<version>`. Empty means use the latest copier from PyPI.                       |
+| `extra-data`     | no          | (none)   | newline-separated `key=value` pairs passed as repeated `copier update --data key=value` flags.             |
 
 `github-token` is only required when `target-version` is unset. If you always pin `target-version` from the caller side (e.g. driven by Renovate), the token can be omitted entirely.
+
+`extra-data` answers questions that `--defaults` alone can't fill in, e.g.:
+
+```yaml
+with:
+  template-repo: your-org/your-template
+  extra-data: |
+    repo_id=999999
+    another_key=another_value
+```
 
 ## Outputs
 
