@@ -110,14 +110,44 @@ describe('runCopierUpdate', () => {
     ])
   })
 
-  it('ignores blank lines and surrounding whitespace in extraData', async () => {
+  it('ignores blank lines in extraData', async () => {
     const calls: ExecCall[] = []
 
     await runCopierUpdate(
       {
         targetVersion: 'v1.2.3',
         copierVersion: '',
-        extraData: '\n  repo_id=999999  \n\n',
+        extraData: '\n\nrepo_id=999999\n\n',
+      },
+      recordingExec(calls),
+    )
+
+    expect(calls).toEqual([
+      {
+        commandLine: 'pipx',
+        args: [
+          'run',
+          'copier',
+          'update',
+          '--trust',
+          '--defaults',
+          '--vcs-ref',
+          'v1.2.3',
+          '--data',
+          'repo_id=999999',
+        ],
+      },
+    ])
+  })
+
+  it('trims surrounding whitespace from each extraData line', async () => {
+    const calls: ExecCall[] = []
+
+    await runCopierUpdate(
+      {
+        targetVersion: 'v1.2.3',
+        copierVersion: '',
+        extraData: '  repo_id=999999  ',
       },
       recordingExec(calls),
     )
