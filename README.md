@@ -125,6 +125,7 @@ The action intentionally does **not** do any of the following. The caller workfl
 - **`target-version` is not validated.** Any ref accepted by `copier update --vcs-ref` is accepted here, including arbitrary commits and branches — not just release tags. If you want to restrict to release tags, do so in the caller workflow (e.g. validate the input before calling this action).
 - **`github-token` scope.** When `target-version` is empty the action calls `gh release view` against `template-repo`. A token with `contents: read` on that repo is sufficient.
 - **mergiraf binary.** The action downloads the mergiraf release tarball from GitHub. The version is hardcoded in the action's source and updated via Renovate. There is no checksum verification today; this will follow upstream once mergiraf publishes checksums.
+- **`extra-data` values are not masked.** Each `key=value` pair is passed as a `copier update --data` argument, and GitHub Actions echoes the full command line to the job log. Only a value sourced from `secrets.*` gets masked automatically; anything else (including a value composed from one) appears in plain text. Don't put sensitive data in `extra-data`.
 
 ## Development
 
