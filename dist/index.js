@@ -48189,6 +48189,12 @@ var index_cjs = __nccwpck_require__(5070);
 ;// CONCATENATED MODULE: ./src/conflicts.ts
 
 const CONFLICT_MARKER = '<<<<<<< before updating';
+// git grep has no --line-regexp flag, so line-anchoring requires a regex
+// pattern instead of -F. CONFLICT_MARKER has no ERE metacharacters, so it's
+// safe to interpolate directly. The trailing \r tolerates a CRLF working
+// tree: git's regex engine, unlike JS, doesn't treat \r as a line terminator
+// for $, so a bare $ would miss CRLF-terminated marker lines.
+const CONFLICT_MARKER_LINE_PATTERN = `^${CONFLICT_MARKER}\r?$`;
 async function detectConflicts(exec, paths) {
     if (paths.length === 0) {
         return (0,index_cjs.ok)([]);
@@ -48201,9 +48207,9 @@ async function detectConflicts(exec, paths) {
         'grep',
         '--untracked',
         '-I',
-        '-F',
+        '-E',
         '-lz',
-        CONFLICT_MARKER,
+        CONFLICT_MARKER_LINE_PATTERN,
         '--',
         ...paths,
     ], {
@@ -48234,6 +48240,11 @@ async function runCopierUpdate(args, exec) {
     const copierSpec = args.copierVersion
         ? `copier==${args.copierVersion}`
         : 'copier';
+    const dataArgs = args.extraData
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line !== '')
+        .flatMap((pair) => ['--data', pair]);
     await exec('pipx', [
         'run',
         copierSpec,
@@ -48242,6 +48253,7 @@ async function runCopierUpdate(args, exec) {
         '--defaults',
         '--vcs-ref',
         args.targetVersion,
+        ...dataArgs,
     ]);
 }
 
@@ -48284,6 +48296,7 @@ function readInputs() {
         targetVersion: getInput('target-version'),
         githubToken: getInput('github-token'),
         copierVersion: getInput('copier-version'),
+        extraData: getInput('extra-data'),
     };
 }
 function validateInputs(inputs) {
@@ -101306,6 +101319,245 @@ async function writeOutputs(exec, changedFiles) {
 
 ;// CONCATENATED MODULE: external "node:child_process"
 const external_node_child_process_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:child_process");
+;// CONCATENATED MODULE: ./src/conflict-block.ts
+const BEFORE_MARKER = '<<<<<<< before updating';
+const BASE_MARKER = '||||||| last update';
+const SEP_MARKER = '=======';
+const AFTER_MARKER = '>>>>>>> after updating';
+function takeUntil(lines, start, marker) {
+    const taken = [];
+    let i = start;
+    while (i < lines.length) {
+        const line = lines[i];
+        if (line === undefined)
+            break;
+        if (line === marker) {
+            return { taken, nextIndex: i + 1 };
+        }
+        taken.push(line);
+        i++;
+    }
+    return null;
+}
+function readBlock(lines, start) {
+    const before = takeUntil(lines, start + 1, BASE_MARKER);
+    if (before === null)
+        return null;
+    const base = takeUntil(lines, before.nextIndex, SEP_MARKER);
+    if (base === null)
+        return null;
+    const after = takeUntil(lines, base.nextIndex, AFTER_MARKER);
+    if (after === null)
+        return null;
+    return {
+        before: before.taken,
+        base: base.taken,
+        after: after.taken,
+        nextIndex: after.nextIndex,
+    };
+}
+// Shared scan for callers that resolve each `<<<<<<< before updating` ...
+// `>>>>>>> after updating` block independently: walks the file line by line,
+// hands each parsed block (plus the line immediately following it) to
+// `resolve`, and splices in its return value — or, when `resolve` returns
+// null (block left unresolved) or the block fails to parse, the original
+// marker text verbatim. Also normalizes CRLF to LF for the scan and restores
+// it on output, since mergiraf always emits LF but the source file may be
+// CRLF.
+function forEachConflictBlock(content, resolve) {
+    const hasCrlf = content.includes('\r\n');
+    const normalized = hasCrlf ? content.replace(/\r\n/g, '\n') : content;
+    const lines = normalized.split('\n');
+    const output = [];
+    let i = 0;
+    while (i < lines.length) {
+        const line = lines[i];
+        if (line === undefined)
+            break;
+        if (line !== BEFORE_MARKER) {
+            output.push(line);
+            i++;
+            continue;
+        }
+        const block = readBlock(lines, i);
+        if (block === null) {
+            output.push(line);
+            i++;
+            continue;
+        }
+        output.push(...(resolve(block, lines[block.nextIndex]) ?? [
+            BEFORE_MARKER,
+            ...block.before,
+            BASE_MARKER,
+            ...block.base,
+            SEP_MARKER,
+            ...block.after,
+            AFTER_MARKER,
+        ]));
+        i = block.nextIndex;
+    }
+    const resolved = output.join('\n');
+    return hasCrlf ? resolved.replace(/\n/g, '\r\n') : resolved;
+}
+
+;// CONCATENATED MODULE: ./src/json-key-conflict.ts
+
+
+// Parses a single conflict-block line, already comma-stripped by the caller
+// (parseKeyLines), as a one-key JSON object fragment (e.g.
+// `  "foo": "1.0.0"` -> { foo: "1.0.0" }), so keys can be matched across
+// before/base/after independently of line position. Multi-line values
+// (nested objects/arrays spanning several lines) fail to parse this way and
+// correctly fall through to leaving the block untouched.
+const parseLineAsEntry = index_cjs/* Result */.Q7.fromThrowable((line) => JSON.parse(`{${line}}`), () => null);
+function json_key_conflict_isPlainObject(value) {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+function deepEqual(a, b) {
+    if (a === b)
+        return true;
+    if (Array.isArray(a) && Array.isArray(b)) {
+        return a.length === b.length && a.every((v, i) => deepEqual(v, b[i]));
+    }
+    if (json_key_conflict_isPlainObject(a) && json_key_conflict_isPlainObject(b)) {
+        const aKeys = Object.keys(a);
+        const bKeys = Object.keys(b);
+        return (aKeys.length === bKeys.length &&
+            aKeys.every((key) => Object.hasOwn(b, key) && deepEqual(a[key], b[key])));
+    }
+    return false;
+}
+// Returns null (block ineligible) unless every line is a standalone
+// `"key": value[,]` fragment — the shape a prettier-formatted flat JSON
+// object (package.json dependencies, scripts, ...) produces one property
+// per line.
+function parseKeyLines(lines) {
+    const map = new Map();
+    for (const line of lines) {
+        const trimmed = line.trim();
+        const withoutTrailingComma = trimmed.endsWith(',')
+            ? trimmed.slice(0, -1)
+            : trimmed;
+        const parsed = parseLineAsEntry(withoutTrailingComma);
+        if (parsed.isErr())
+            return null;
+        const entry = parsed.value;
+        if (!json_key_conflict_isPlainObject(entry))
+            return null;
+        const keys = Object.keys(entry);
+        const key = keys[0];
+        if (keys.length !== 1 || key === undefined)
+            return null;
+        map.set(key, { line, value: entry[key] });
+    }
+    return map;
+}
+function entriesEqual(a, b) {
+    if (a === undefined || b === undefined)
+        return a === b;
+    return deepEqual(a.value, b.value);
+}
+// ponytail: after-only keys are appended at the end rather than at their
+// true relative position in `after`; upgrade to a proper LCS-based key-order
+// merge (like resolveBlockLines's diffArrays approach) if template-inserted
+// keys ever need to land at a specific position instead of the end.
+function orderedKeys(beforeMap, afterMap) {
+    const keys = [...beforeMap.keys()];
+    const seen = new Set(keys);
+    for (const key of afterMap.keys()) {
+        if (!seen.has(key)) {
+            keys.push(key);
+            seen.add(key);
+        }
+    }
+    return keys;
+}
+function resolveKey(base, before, after) {
+    if (entriesEqual(before, after)) {
+        return before !== undefined
+            ? { kind: 'keep', line: before.line }
+            : { kind: 'omit' };
+    }
+    if (entriesEqual(base, before)) {
+        return after !== undefined
+            ? { kind: 'keep', line: after.line }
+            : { kind: 'omit' };
+    }
+    if (entriesEqual(base, after)) {
+        return before !== undefined
+            ? { kind: 'keep', line: before.line }
+            : { kind: 'omit' };
+    }
+    return { kind: 'conflict' };
+}
+// Kept lines always get their comma forced on push (see the 'keep' branch
+// below); only the last line of a fully-resolved block gets its comma
+// corrected against what follows the block in the file, stripped if the
+// block is immediately followed by an object/array close.
+function endsEnclosure(nextLine) {
+    if (nextLine === undefined)
+        return true;
+    const trimmed = nextLine.trim();
+    return trimmed.startsWith('}') || trimmed.startsWith(']');
+}
+function withTrailingComma(line, want) {
+    const stripped = line.replace(/,\s*$/, '');
+    return want ? `${stripped},` : stripped;
+}
+function resolveBlock(before, base, after, nextLine) {
+    const beforeMap = parseKeyLines(before);
+    if (beforeMap === null)
+        return null;
+    const baseMap = parseKeyLines(base);
+    if (baseMap === null)
+        return null;
+    const afterMap = parseKeyLines(after);
+    if (afterMap === null)
+        return null;
+    const output = [];
+    let hasConflict = false;
+    for (const key of orderedKeys(beforeMap, afterMap)) {
+        const beforeEntry = beforeMap.get(key);
+        const baseEntry = baseMap.get(key);
+        const afterEntry = afterMap.get(key);
+        const resolution = resolveKey(baseEntry, beforeEntry, afterEntry);
+        if (resolution.kind === 'keep') {
+            output.push(withTrailingComma(resolution.line, true));
+        }
+        else if (resolution.kind === 'conflict') {
+            hasConflict = true;
+            output.push(BEFORE_MARKER);
+            if (beforeEntry !== undefined)
+                output.push(beforeEntry.line);
+            output.push(BASE_MARKER);
+            if (baseEntry !== undefined)
+                output.push(baseEntry.line);
+            output.push(SEP_MARKER);
+            if (afterEntry !== undefined)
+                output.push(afterEntry.line);
+            output.push(AFTER_MARKER);
+        }
+    }
+    const lastIndex = output.length - 1;
+    const lastLine = output[lastIndex];
+    if (!hasConflict && lastLine !== undefined) {
+        output[lastIndex] = withTrailingComma(lastLine, !endsEnclosure(nextLine));
+    }
+    return output;
+}
+/**
+ * Resolves leftover mergiraf conflict blocks that are flat JSON
+ * `"key": value` maps (package.json dependencies, scripts, ...) by merging
+ * key-by-key: a key changed on only one side (added, removed, or modified)
+ * is adopted from that side; a key changed differently on both sides is
+ * left as its own isolated marker block. Blocks whose lines aren't
+ * standalone single-key JSON fragments (non-JSON files, multi-line nested
+ * values) are left untouched.
+ */
+function resolveJsonKeyConflicts(content) {
+    return forEachConflictBlock(content, (block, nextLine) => resolveBlock(block.before, block.base, block.after, nextLine));
+}
+
 ;// CONCATENATED MODULE: ./node_modules/.pnpm/diff@9.0.0/node_modules/diff/libesm/diff/base.js
 class Diff {
     diff(oldStr, newStr, 
@@ -101582,10 +101834,7 @@ function diffArrays(oldArr, newArr, options) {
 ;// CONCATENATED MODULE: ./src/version-conflict.ts
 
 
-const BEFORE_MARKER = '<<<<<<< before updating';
-const BASE_MARKER = '||||||| last update';
-const SEP_MARKER = '=======';
-const AFTER_MARKER = '>>>>>>> after updating';
+
 // Matches version-like tokens (e.g. `2.0.0`, `v6.0.2`, `2026.6.11`). The
 // segment count is unbounded so a longer dotted run (e.g. an IP address) is
 // captured whole rather than silently truncated to its first 3 segments;
@@ -101593,67 +101842,55 @@ const AFTER_MARKER = '>>>>>>> after updating';
 // faithfully instead of comparing a truncated prefix.
 const VERSION_TOKEN_RE = /v?\d+(?:\.\d+)+(?:[-+][0-9A-Za-z.]+)?/g;
 const MAX_SEGMENTS_RE = /^v?\d+(?:\.\d+){0,2}(?:[-+][0-9A-Za-z.]+)?$/;
-function takeUntil(lines, start, marker) {
-    const taken = [];
-    let i = start;
-    while (i < lines.length) {
-        const line = lines[i];
-        if (line === undefined)
-            break;
-        if (line === marker) {
-            return { taken, nextIndex: i + 1 };
-        }
-        taken.push(line);
-        i++;
-    }
-    return null;
-}
-function readBlock(lines, start) {
-    const before = takeUntil(lines, start + 1, BASE_MARKER);
-    if (before === null)
+// The run of pin-range operator characters immediately preceding a version
+// token (e.g. `=2.0.19`, `^1.2.3`, `= 2.0.19`). mergiraf can mis-pair two
+// unrelated key-value lines that happen to end in a comparable version (see
+// pickNewerLine below); when it does, the value's pin syntax often still
+// betrays the mismatch even though the rest of the line reads as plausible.
+// Trailing whitespace between the operator and the version is skipped so it
+// doesn't mask the operator into an empty match.
+const PIN_PREFIX_RE = /([~^=<>!]+)\s*$/;
+function matchSingleVersion(line) {
+    const matches = [...line.matchAll(VERSION_TOKEN_RE)];
+    if (matches.length !== 1)
         return null;
-    const base = takeUntil(lines, before.nextIndex, SEP_MARKER);
-    if (base === null)
+    const match = matches[0];
+    if (match === undefined)
         return null;
-    const after = takeUntil(lines, base.nextIndex, AFTER_MARKER);
-    if (after === null)
-        return null;
-    return {
-        before: before.taken,
-        base: base.taken,
-        after: after.taken,
-        nextIndex: after.nextIndex,
-    };
-}
-function extractSingleVersion(line) {
-    const matches = line.match(VERSION_TOKEN_RE);
-    if (matches === null || matches.length !== 1)
-        return null;
-    const token = matches[0];
+    const token = match[0];
     if (!MAX_SEGMENTS_RE.test(token))
         return null;
     // includePrerelease so a prerelease tag (e.g. `2.0.0-rc.1`) doesn't coerce
     // down to the same value as its stable counterpart (`2.0.0`) and get
     // treated as an equal, tie-broken-to-after version.
     const coerced = semver.coerce(token, { includePrerelease: true });
-    return coerced === null ? null : coerced.version;
+    if (coerced === null)
+        return null;
+    const pinPrefix = PIN_PREFIX_RE.exec(line.slice(0, match.index))?.[1] ?? '';
+    return { version: coerced.version, pinPrefix };
 }
 /**
  * Picks whichever whole line embeds the semantically newer version, so a
  * winning line's unrelated content (e.g. a SHA pin next to a version
  * comment) travels with it instead of being reconstructed field-by-field.
- * Returns null when either side isn't a single unambiguous version.
+ * Returns null when either side isn't a single unambiguous version, or when
+ * the two sides pin the version differently (e.g. `= 2.0.19` vs a bare
+ * `0.8`) — that mismatch is the signature of mergiraf having paired up two
+ * unrelated fields rather than an actual version bump.
  */
 function pickNewerLine(before, after) {
-    const beforeVersion = extractSingleVersion(before);
-    const afterVersion = extractSingleVersion(after);
-    if (beforeVersion === null || afterVersion === null)
+    const beforeMatch = matchSingleVersion(before);
+    const afterMatch = matchSingleVersion(after);
+    if (beforeMatch === null || afterMatch === null)
         return null;
-    return semver.gt(beforeVersion, afterVersion) ? before : after;
+    if (beforeMatch.pinPrefix !== afterMatch.pinPrefix)
+        return null;
+    return semver.gt(beforeMatch.version, afterMatch.version) ? before : after;
 }
 function resolveBlockLines(before, base, after) {
     const parts = diffArrays(before, after);
     const output = [];
+    let resolvedCount = 0;
     let i = 0;
     while (i < parts.length) {
         const part = parts[i];
@@ -101701,6 +101938,7 @@ function resolveBlockLines(before, base, after) {
             : null;
         if (resolvedLine !== null) {
             output.push(resolvedLine);
+            resolvedCount++;
         }
         else {
             // The unresolved slice reuses the whole original `base` section since
@@ -101711,45 +101949,16 @@ function resolveBlockLines(before, base, after) {
         }
         i += consumed;
     }
-    return output;
+    return { lines: output, resolvedCount };
 }
-/**
- * Resolves leftover mergiraf conflict blocks whose `before updating` /
- * `after updating` sides differ only by a comparable version, adopting
- * whichever side is semantically newer. Lines that aren't a clean
- * version-only change (unparseable values, ambiguous multi-version lines,
- * or lines with no counterpart on the other side) are left conflicted.
- */
 function resolveVersionConflicts(content) {
-    // mergiraf always emits LF, but the file it operates on may still be CRLF
-    // (e.g. checked out with core.autocrlf or a CRLF gitattributes rule).
-    // Splitting on '\n' alone would leave a trailing '\r' on every line,
-    // so BEFORE_MARKER and friends would never match.
-    const hasCrlf = content.includes('\r\n');
-    const normalized = hasCrlf ? content.replace(/\r\n/g, '\n') : content;
-    const lines = normalized.split('\n');
-    const output = [];
-    let i = 0;
-    while (i < lines.length) {
-        const line = lines[i];
-        if (line === undefined)
-            break;
-        if (line !== BEFORE_MARKER) {
-            output.push(line);
-            i++;
-            continue;
-        }
-        const block = readBlock(lines, i);
-        if (block === null) {
-            output.push(line);
-            i++;
-            continue;
-        }
-        output.push(...resolveBlockLines(block.before, block.base, block.after));
-        i = block.nextIndex;
-    }
-    const resolved = output.join('\n');
-    return hasCrlf ? resolved.replace(/\n/g, '\r\n') : resolved;
+    let resolvedCount = 0;
+    const resolvedContent = forEachConflictBlock(content, (block) => {
+        const blockResolution = resolveBlockLines(block.before, block.base, block.after);
+        resolvedCount += blockResolution.resolvedCount;
+        return blockResolution.lines;
+    });
+    return { content: resolvedContent, resolvedCount };
 }
 
 ;// CONCATENATED MODULE: ./src/per-block-resolve.ts
@@ -101758,7 +101967,11 @@ function resolveVersionConflicts(content) {
 
 
 
-const per_block_resolve_CONFLICT_MARKER = '<<<<<<< before updating';
+
+// Anchored to a whole line (optionally CRLF) so a source file that merely
+// mentions the marker string (e.g. this constant, a test fixture) isn't
+// mistaken for an unresolved conflict.
+const CONFLICT_MARKER_RE = /^<<<<<<< before updating\r?$/m;
 // mergiraf defaults --keep-backup to true, writing a `<file>.orig` copy of
 // the pre-resolution content that is never cleaned up and ends up committed
 // by the workflow's `git add -A` step.
@@ -101769,6 +101982,23 @@ const readConflictFile = index_cjs/* Result */.Q7.fromThrowable((filePath) => (0
 const writeConflictFile = index_cjs/* Result */.Q7.fromThrowable((filePath, content) => {
     (0,external_node_fs_namespaceObject.writeFileSync)(filePath, content);
 }, (caught) => caught);
+// Runs one resolver stage: writes its output back to disk when it changed
+// anything, and falls back to the pre-stage content (rather than aborting
+// the rest of the pipeline) if the write itself fails.
+function applyResolver(filePath, content, resolve, label) {
+    const resolved = resolve(content);
+    if (resolved === content)
+        return content;
+    const writeResult = writeConflictFile(filePath, resolved);
+    if (writeResult.isErr()) {
+        const caught = writeResult.error;
+        const detail = caught instanceof Error ? caught.message : String(caught);
+        warning(`failed to write ${filePath} after ${label}: ${detail}`);
+        return content;
+    }
+    info(`resolved ${label}`);
+    return resolved;
+}
 function resolveFile(filePath, mergirafBin) {
     let exitStatus = 0;
     const solveResult = runMergiraf(mergirafBin, filePath);
@@ -101807,8 +102037,16 @@ function resolveFile(filePath, mergirafBin) {
         return;
     }
     let content = readResult.value;
-    if (content.includes(per_block_resolve_CONFLICT_MARKER)) {
-        const resolved = resolveVersionConflicts(content);
+    // JSON key-level merge runs first so it can isolate a single genuinely
+    // conflicting key (e.g. a version string) away from keys that only one
+    // side touched; the version-conflict pass below then has a clean
+    // single-line block to resolve instead of a multi-key hunk it can't
+    // safely split.
+    if (CONFLICT_MARKER_RE.test(content)) {
+        content = applyResolver(filePath, content, resolveJsonKeyConflicts, 'a package.json-style key conflict via key-level merge');
+    }
+    if (CONFLICT_MARKER_RE.test(content)) {
+        const { content: resolved, resolvedCount } = resolveVersionConflicts(content);
         if (resolved !== content) {
             const writeResult = writeConflictFile(filePath, resolved);
             if (writeResult.isErr()) {
@@ -101822,11 +102060,13 @@ function resolveFile(filePath, mergirafBin) {
             }
             else {
                 content = resolved;
-                info('resolved a version-only conflict via semver comparison');
+                if (resolvedCount > 0) {
+                    info('resolved a version-only conflict via semver comparison');
+                }
             }
         }
     }
-    if (content.includes(per_block_resolve_CONFLICT_MARKER)) {
+    if (CONFLICT_MARKER_RE.test(content)) {
         // Include the exit status so callers can distinguish "mergiraf gave up
         // without touching the file" (exit 1) from "mergiraf resolved some blocks
         // but left the rest as smaller markers" (exit 2).
@@ -101898,7 +102138,11 @@ async function runWithDeps(deps) {
     });
     const mergirafBin = await withGroup('Install mergiraf', async () => unwrapOrReject(await deps.installMergiraf(deps.exec)));
     await withGroup('Configure git diff3', () => deps.configureDiff3(deps.exec));
-    await withGroup('Run copier update', () => deps.runCopierUpdate({ targetVersion, copierVersion: inputs.copierVersion }, deps.exec));
+    await withGroup('Run copier update', () => deps.runCopierUpdate({
+        targetVersion,
+        copierVersion: inputs.copierVersion,
+        extraData: inputs.extraData,
+    }, deps.exec));
     const { changedFiles, conflictFiles } = await withGroup('Detect conflicts', async () => {
         const changed = await unwrapOrReject(await deps.getChangedFiles(deps.exec));
         const files = await unwrapOrReject(await deps.detectConflicts(deps.exec, changed));
