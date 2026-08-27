@@ -27,8 +27,19 @@ The net effect is that PRs which previously needed manual conflict resolution of
 | `target-version` | no          | (latest) | ref passed to `copier update --vcs-ref`. When empty, the action resolves the latest release via `gh`.      |
 | `github-token`   | conditional | —        | token used by `gh release view` when `target-version` is empty. Needs `contents: read` on `template-repo`. |
 | `copier-version` | no          | (latest) | passed to `pipx run copier==<version>`. Empty means use the latest copier from PyPI.                       |
+| `extra-data`     | no          | (none)   | newline-separated `key=value` pairs passed as repeated `copier update --data key=value` flags.             |
 
 `github-token` is only required when `target-version` is unset. If you always pin `target-version` from the caller side (e.g. driven by Renovate), the token can be omitted entirely.
+
+`extra-data` answers questions that `--defaults` alone can't fill in, e.g.:
+
+```yaml
+with:
+  template-repo: your-org/your-template
+  extra-data: |
+    repo_id=999999
+    another_key=another_value
+```
 
 ## Outputs
 
@@ -114,6 +125,7 @@ The action intentionally does **not** do any of the following. The caller workfl
 - **`target-version` is not validated.** Any ref accepted by `copier update --vcs-ref` is accepted here, including arbitrary commits and branches — not just release tags. If you want to restrict to release tags, do so in the caller workflow (e.g. validate the input before calling this action).
 - **`github-token` scope.** When `target-version` is empty the action calls `gh release view` against `template-repo`. A token with `contents: read` on that repo is sufficient.
 - **mergiraf binary.** The action downloads the mergiraf release tarball from GitHub. The version is hardcoded in the action's source and updated via Renovate. There is no checksum verification today; this will follow upstream once mergiraf publishes checksums.
+- **`extra-data` values are not masked.** Each `key=value` pair is passed as a `copier update --data` argument, and GitHub Actions echoes the full command line to the job log. Only a value sourced from `secrets.*` gets masked automatically; anything else (including a value composed from one) appears in plain text. Don't put sensitive data in `extra-data`.
 
 ## Development
 

@@ -25,6 +25,7 @@ describe('readInputs', () => {
       'target-version': 'v1.2.3',
       'github-token': 'ghs_token',
       'copier-version': '9.4.1',
+      'extra-data': 'repo_id=999999',
     })
 
     expect(readInputs()).toEqual({
@@ -32,6 +33,7 @@ describe('readInputs', () => {
       targetVersion: 'v1.2.3',
       githubToken: 'ghs_token',
       copierVersion: '9.4.1',
+      extraData: 'repo_id=999999',
     })
   })
 
@@ -43,6 +45,7 @@ describe('readInputs', () => {
       targetVersion: '',
       githubToken: '',
       copierVersion: '',
+      extraData: '',
     })
   })
 })
@@ -53,6 +56,7 @@ describe('validateInputs', () => {
     targetVersion: 'v1.2.3',
     githubToken: '',
     copierVersion: '',
+    extraData: '',
   }
 
   const run = (overrides: Partial<Inputs>) =>

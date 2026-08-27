@@ -6,6 +6,7 @@ import type { Result } from 'neverthrow'
 import { detectConflicts as defaultDetectConflicts } from '#conflicts'
 import {
   configureDiff3 as defaultConfigureDiff3,
+  type CopierUpdateArgs,
   runCopierUpdate as defaultRunCopierUpdate,
 } from '#copier'
 import type { Exec } from '#exec'
@@ -36,10 +37,7 @@ export interface RunDeps {
   ) => Promise<Result<string, Error>>
   installMergiraf: (exec: Exec) => Promise<Result<string, Error>>
   configureDiff3: (exec: Exec) => Promise<void>
-  runCopierUpdate: (
-    args: { targetVersion: string; copierVersion: string },
-    exec: Exec,
-  ) => Promise<void>
+  runCopierUpdate: (args: CopierUpdateArgs, exec: Exec) => Promise<void>
   getChangedFiles: (exec: Exec) => Promise<Result<string[], Error>>
   detectConflicts: (
     exec: Exec,
@@ -93,7 +91,11 @@ export async function runWithDeps(deps: RunDeps): Promise<void> {
 
   await withGroup('Run copier update', () =>
     deps.runCopierUpdate(
-      { targetVersion, copierVersion: inputs.copierVersion },
+      {
+        targetVersion,
+        copierVersion: inputs.copierVersion,
+        extraData: inputs.extraData,
+      },
       deps.exec,
     ),
   )
