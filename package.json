@@ -28,8 +28,7 @@
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.1",
-    "@eslint/eslintrc": "3.3.6",
-    "@fohte/eslint-config": "0.4.1",
+    "@fohte/eslint-config": "0.4.3",
     "@ninoseki/eslint-plugin-neverthrow": "0.2.0",
     "@tsconfig/node-lts": "24.0.0",
     "@tsconfig/strictest": "2.0.8",
@@ -38,6 +37,7 @@
     "@vercel/ncc": "0.44.1",
     "concurrently": "10.0.4",
     "eslint": "10.6.0",
+    "knip": "6.32.2",
     "prettier": "3.9.6",
     "typescript": "6.0.3",
     "vitest": "4.1.10"
