@@ -75,10 +75,6 @@ function entriesEqual(
   return deepEqual(a.value, b.value)
 }
 
-// ponytail: after-only keys are appended at the end rather than at their
-// true relative position in `after`; upgrade to a proper LCS-based key-order
-// merge (like resolveBlockLines's diffArrays approach) if template-inserted
-// keys ever need to land at a specific position instead of the end.
 function orderedKeys(
   beforeMap: Map<string, LineEntry>,
   afterMap: Map<string, LineEntry>,
