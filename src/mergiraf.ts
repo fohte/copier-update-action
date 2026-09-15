@@ -54,9 +54,13 @@ async function saveMergirafCache(
   binPath: string,
   cacheKey: string,
 ): Promise<void> {
-  await warnOnCacheFailure(
+  const result = await warnOnCacheFailure(
     cache.saveCache([binPath], cacheKey),
     'failed to save cache',
+  )
+  result.match(
+    () => undefined,
+    () => undefined,
   )
 }
 

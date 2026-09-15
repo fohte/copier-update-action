@@ -34,7 +34,7 @@ export interface ParsedBlock {
   nextIndex: number
 }
 
-export function readBlock(lines: string[], start: number): ParsedBlock | null {
+function readBlock(lines: string[], start: number): ParsedBlock | null {
   const before = takeUntil(lines, start + 1, BASE_MARKER)
   if (before === null) return null
   const base = takeUntil(lines, before.nextIndex, SEP_MARKER)
