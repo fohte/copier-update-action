@@ -19,44 +19,48 @@ function describeCaught(caught: unknown): string {
   return caught instanceof Error ? caught.message : String(caught)
 }
 
+function warnCacheFailure(message: string, caught: unknown): void {
+  core.warning(`mergiraf: ${message}: ${describeCaught(caught)}`)
+}
+
 // The cache service can throw (e.g. a transient service outage); caching is
 // an optimization, so any failure here must fall back to a normal download
 // rather than failing the whole action.
-async function warnOnCacheFailure<T>(
-  promise: Promise<T>,
-  failureMessage: string,
-): Promise<Result<T, unknown>> {
-  const result = await ResultAsync.fromPromise(
-    promise,
-    (caught: unknown) => caught,
-  )
-
-  if (result.isErr()) {
-    core.warning(`mergiraf: ${failureMessage}: ${describeCaught(result.error)}`)
-  }
-
-  return result
-}
-
 async function restoreMergirafCache(
   binPath: string,
   cacheKey: string,
 ): Promise<boolean> {
-  const result = await warnOnCacheFailure(
+  const result = await ResultAsync.fromPromise(
     cache.restoreCache([binPath], cacheKey),
-    'failed to restore cache, falling back to download',
+    (caught: unknown) => caught,
   )
 
-  return result.isOk() && result.value !== undefined
+  return result.match(
+    (value) => value !== undefined,
+    (caught) => {
+      warnCacheFailure(
+        'failed to restore cache, falling back to download',
+        caught,
+      )
+      return false
+    },
+  )
 }
 
 async function saveMergirafCache(
   binPath: string,
   cacheKey: string,
 ): Promise<void> {
-  await warnOnCacheFailure(
+  const result = await ResultAsync.fromPromise(
     cache.saveCache([binPath], cacheKey),
-    'failed to save cache',
+    (caught: unknown) => caught,
+  )
+
+  result.match(
+    () => undefined,
+    (caught) => {
+      warnCacheFailure('failed to save cache', caught)
+    },
   )
 }
 

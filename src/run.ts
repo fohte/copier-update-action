@@ -62,10 +62,17 @@ function withGroup<T>(name: string, fn: () => Promise<T>): Promise<T> {
   })
 }
 
-function unwrapOrReject<T>(result: Result<T, Error>): Promise<T> {
-  return result.isErr()
-    ? Promise.reject(result.error)
-    : Promise.resolve(result.value)
+// Accepts either form so callers don't need an extra `await` just to satisfy
+// this function's parameter type before immediately handling the Result.
+function unwrapOrReject<T>(
+  result: Result<T, Error> | Promise<Result<T, Error>>,
+): Promise<T> {
+  return Promise.resolve(result).then((r) =>
+    r.match(
+      (value) => value,
+      (error) => Promise.reject<T>(error),
+    ),
+  )
 }
 
 export async function runWithDeps(deps: RunDeps): Promise<void> {
@@ -77,14 +84,14 @@ export async function runWithDeps(deps: RunDeps): Promise<void> {
   const targetVersion = await withGroup('Resolve target version', async () => {
     const getLatestRelease = deps.getLatestReleaseFactory(inputs.githubToken)
     const v = await unwrapOrReject(
-      await deps.resolveTargetVersion(inputs, getLatestRelease),
+      deps.resolveTargetVersion(inputs, getLatestRelease),
     )
     core.setOutput('target-version', v)
     return v
   })
 
-  const mergirafBin = await withGroup('Install mergiraf', async () =>
-    unwrapOrReject(await deps.installMergiraf(deps.exec)),
+  const mergirafBin = await withGroup('Install mergiraf', () =>
+    unwrapOrReject(deps.installMergiraf(deps.exec)),
   )
 
   await withGroup('Configure git diff3', () => deps.configureDiff3(deps.exec))
@@ -103,11 +110,9 @@ export async function runWithDeps(deps: RunDeps): Promise<void> {
   const { changedFiles, conflictFiles } = await withGroup(
     'Detect conflicts',
     async () => {
-      const changed = await unwrapOrReject(
-        await deps.getChangedFiles(deps.exec),
-      )
+      const changed = await unwrapOrReject(deps.getChangedFiles(deps.exec))
       const files = await unwrapOrReject(
-        await deps.detectConflicts(deps.exec, changed),
+        deps.detectConflicts(deps.exec, changed),
       )
       core.info(`detected ${String(files.length)} conflict file(s)`)
       return { changedFiles: changed, conflictFiles: files }
@@ -120,8 +125,8 @@ export async function runWithDeps(deps: RunDeps): Promise<void> {
     )
   }
 
-  await withGroup('Write outputs', async () =>
-    unwrapOrReject(await deps.writeOutputs(deps.exec, changedFiles)),
+  await withGroup('Write outputs', () =>
+    unwrapOrReject(deps.writeOutputs(deps.exec, changedFiles)),
   )
 }
 

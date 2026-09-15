@@ -1,7 +1,7 @@
 {
   "name": "copier-update-action",
   "private": true,
-  "packageManager": "pnpm@11.16.0",
+  "packageManager": "pnpm@12.3.4",
   "type": "module",
   "imports": {
     "#test/*": "./test/*.ts",
@@ -28,16 +28,16 @@
   },
   "devDependencies": {
     "@commitlint/cli": "21.2.2",
-    "@eslint/eslintrc": "3.3.6",
-    "@fohte/eslint-config": "0.4.1",
-    "@ninoseki/eslint-plugin-neverthrow": "0.2.0",
+    "@fohte/eslint-config": "0.4.4",
+    "@ninoseki/eslint-plugin-neverthrow": "0.3.1",
     "@tsconfig/node-lts": "24.0.1",
     "@tsconfig/strictest": "2.0.8",
     "@types/node": "24.13.3",
     "@types/semver": "7.8.0",
     "@vercel/ncc": "0.44.1",
     "concurrently": "10.0.5",
-    "eslint": "10.6.0",
+    "eslint": "10.10.0",
+    "knip": "6.34.0",
     "prettier": "3.9.6",
     "typescript": "6.0.3",
     "vitest": "4.1.11"
