@@ -58,6 +58,8 @@ async function saveMergirafCache(
     cache.saveCache([binPath], cacheKey),
     'failed to save cache',
   )
+  // warnOnCacheFailure already logged the failure; this only satisfies
+  // neverthrow/must-use-result, the outcome itself is unused.
   result.match(
     () => undefined,
     () => undefined,
