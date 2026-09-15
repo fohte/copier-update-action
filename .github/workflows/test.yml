@@ -132,14 +132,12 @@ jobs:
       - name: Run tests
         run: pnpm run test
 
-<<<<<<< before updating
       # Verifies the action bundle still builds. `dist/` is gitignored and
       # the artifact is discarded on normal PRs; the actual commit of `dist/`
       # happens in .github/workflows/release-please.yml on release.
       - name: Verify bundle builds
         run: pnpm build
-||||||| last update
-=======
+
   # Fixed name for branch protection: knip has no `needs` of its own, so
   # this gate (skip == success) folds its result into unit-test.
   unit-test:
@@ -183,4 +181,3 @@ jobs:
 
       - name: Run knip
         run: pnpm exec knip
->>>>>>> after updating
