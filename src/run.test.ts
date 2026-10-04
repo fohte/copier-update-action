@@ -2,8 +2,9 @@ import { err, ok } from 'neverthrow'
 import { describe, expect, it } from 'vitest'
 
 import type { CopierUpdateArgs } from '#copier'
+import type { Exec } from '#exec'
 import type { Inputs } from '#inputs'
-import { type Exec, type RunDeps, runWithDeps } from '#run'
+import { type RunDeps, runWithDeps } from '#run-with-deps'
 import type { GetLatestRelease } from '#target-version'
 
 interface CallLog {

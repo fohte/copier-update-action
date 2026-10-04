@@ -8,7 +8,9 @@ import { addPath, warning } from '@actions/core'
 import { ok, type Result } from 'neverthrow'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { type Exec, installMergiraf, MERGIRAF_VERSION } from '#mergiraf'
+import type { Exec } from '#exec'
+import { installMergiraf } from '#mergiraf'
+import { MERGIRAF_VERSION } from '#mergiraf-version'
 
 vi.mock('@actions/core', () => ({
   addPath: vi.fn(),

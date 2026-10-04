@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 
 import { err, ok, type Result } from 'neverthrow'
 
-import { MERGIRAF_VERSION } from '#mergiraf'
+import { MERGIRAF_VERSION } from '#mergiraf-version'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const CACHE_DIR = resolve(
