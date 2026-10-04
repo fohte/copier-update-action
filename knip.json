@@ -1,5 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
+  "project": ["**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts}!", "!test/**!"],
   "treatConfigHintsAsErrors": true,
   "ignoreDependencies": ["@commitlint/cli"],
   "ignore": ["commitlint-plugin-no-external-refs.cjs"]
