@@ -7,11 +7,7 @@ import * as core from '@actions/core'
 import { err, ok, type Result, ResultAsync } from 'neverthrow'
 
 import type { Exec } from '#exec'
-
-export type { Exec } from '#exec'
-
-// renovate: datasource=github-releases depName=mergiraf/mergiraf
-export const MERGIRAF_VERSION = 'v0.17.0'
+import { MERGIRAF_VERSION } from '#mergiraf-version'
 
 const ASSET = 'mergiraf_x86_64-unknown-linux-gnu.tar.gz'
 
