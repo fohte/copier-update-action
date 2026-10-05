@@ -68,6 +68,8 @@ pre-commit:
 
     ast-grep:
       glob: '*.{js,ts,jsx,tsx,mjs,cjs,mts,cts,rs}'
+      exclude:
+        - 'dist/**'
       run: ast-grep scan {staged_files}
 
 commit-msg:
