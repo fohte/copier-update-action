@@ -110,8 +110,8 @@ importers:
   .:
     dependencies:
       '@actions/cache':
-        specifier: 6.2.0
-        version: 6.2.0(supports-color@10.2.2)
+        specifier: 6.3.0
+        version: 6.3.0(supports-color@10.2.2)
       '@actions/core':
         specifier: 3.0.1
         version: 3.0.1
@@ -176,8 +176,8 @@ importers:
 
 packages:
 
-  '@actions/cache@6.2.0':
-    resolution: {integrity: sha512-Nv0xWRmbxfDbAn/70flO/F6tj2Nv4XTYMAsQHiDFSojCDfso/Zni+fRKa14ToI9hnmOW/rQcY1WYb6wsM7Pgwg==}
+  '@actions/cache@6.3.0':
+    resolution: {integrity: sha512-SJKaVMqTgetQgJF0wifi5N2+2mffCLy/D4w/3sJtRanBBGECdi1/OD0wswyLVmqEmPbYB/rVJk41Qn/xEbFjAw==}
 
   '@actions/core@3.0.1':
     resolution: {integrity: sha512-a6d/Nwahm9fliVGRhdhofo40HjHQasUPusmc7vBfyky+7Z+P2A1J68zyFVaNcEclc/Se+eO595oAr5nwEIoIUA==}
@@ -188,8 +188,8 @@ packages:
   '@actions/github@9.1.1':
     resolution: {integrity: sha512-tL5JbYOBZHc0ngEnCsaDcryUizIUIlQyIMwy1Wkx93H5HzbBJ7TbiPx2PnFjBwZW0Vh05JmfFZhecE6gglYegA==}
 
-  '@actions/glob@0.6.1':
-    resolution: {integrity: sha512-K4+2Ac5ILcf2ySdJCha+Pop9NcKjxqCL4xL4zI50dgB2PbXgC0+AcP011xfH4Of6b4QEJJg8dyZYv7zl4byTsw==}
+  '@actions/glob@0.7.0':
+    resolution: {integrity: sha512-+7s3wM+cXapDLmLL1NVWHawqcJOZzXZy2df/VhNn8DnZtS/x83iTCKaUn9F0llur4h3CII0AilvKKH4CMPL8Gw==}
 
   '@actions/http-client@3.0.2':
     resolution: {integrity: sha512-JP38FYYpyqvUsz+Igqlc/JG6YO9PaKuvqjM3iGvaLqFnJ7TFmcLyy2IDrY0bI0qCQug8E9K+elv5ZNfw62ZJzA==}
@@ -227,6 +227,10 @@ packages:
     resolution: {integrity: sha512-7GEAoIsaoBr6KELNRb8nypowCqvk8dnCHFCYg4XD4lOQGY2GqjQg5IhkRjyBFRO18CGSMq05PaNqSOE9GQro3g==}
     engines: {node: '>=22.0.0'}
 
+  '@azure/core-rest-pipeline@1.23.0':
+    resolution: {integrity: sha512-Evs1INHo+jUjwHi1T6SG6Ua/LHOQBCLuKEEE6efIpt4ZOoNonaT1kP32GoOcdNDbfqsD2445CPri3MubBy5DEQ==}
+    engines: {node: '>=20.0.0'}
+
   '@azure/core-rest-pipeline@1.25.0':
     resolution: {integrity: sha512-bMs8ekJLjX8wPV+9IPBges1SLPyuDtE9g5gLDWOpxzKcoOFQnpLGkbcT1tdw3FaAmDS1gnPmMmJ6y/T5B96kIA==}
     engines: {node: '>=22.0.0'}
@@ -247,9 +251,9 @@ packages:
     resolution: {integrity: sha512-rbAE25KUfjU/s3XHUdJgceoCP5dEOpMx85J04kF+QMdta73XkuG9JGHHinch+XIoKpBdqljin+KqURpJriSzLA==}
     engines: {node: '>=22.0.0'}
 
-  '@azure/storage-blob@12.33.0':
-    resolution: {integrity: sha512-2SX8oP8PyblUcAFZSg39c8Ls+tFjavM6sBeV+qpw33mRzRhI/5hrFJmJ/x0H9xx5l6ECPvgSP8uPxqTeVbHNIA==}
-    engines: {node: '>=22.0.0'}
+  '@azure/storage-blob@12.31.0':
+    resolution: {integrity: sha512-DBgNv10aCSxopt92DkTDD0o9xScXeBqPKGmR50FPZQaEcH4JLQ+GEOGEDv19V5BMkB7kxr+m4h6il/cCDPvmHg==}
+    engines: {node: '>=20.0.0'}
 
   '@azure/storage-common@12.4.1':
     resolution: {integrity: sha512-t14unw/WofGDUi7TKJrsyXyPsN+NLgRm7hMaq0llxNmTIzt7f257+6LE6FKIJPh88zLj6M7LPvzve0fEYg/L3A==}
@@ -2106,15 +2110,15 @@ packages:
 
 snapshots:
 
-  '@actions/cache@6.2.0(supports-color@10.2.2)':
+  '@actions/cache@6.3.0(supports-color@10.2.2)':
     dependencies:
       '@actions/core': 3.0.1
       '@actions/exec': 3.0.0
-      '@actions/glob': 0.6.1
+      '@actions/glob': 0.7.0
       '@actions/http-client': 4.0.1
       '@actions/io': 3.0.2
-      '@azure/core-rest-pipeline': 1.25.0(supports-color@10.2.2)
-      '@azure/storage-blob': 12.33.0(supports-color@10.2.2)
+      '@azure/core-rest-pipeline': 1.23.0(supports-color@10.2.2)
+      '@azure/storage-blob': 12.31.0(supports-color@10.2.2)
       '@protobuf-ts/runtime-rpc': 2.11.1
       semver: 7.8.5
     transitivePeerDependencies:
@@ -2139,10 +2143,10 @@ snapshots:
       '@octokit/request-error': 7.1.0
       undici: 6.27.0
 
-  '@actions/glob@0.6.1':
+  '@actions/glob@0.7.0':
     dependencies:
       '@actions/core': 3.0.1
-      minimatch: 3.1.5
+      minimatch: 10.2.5
 
   '@actions/http-client@3.0.2':
     dependencies:
@@ -2199,6 +2203,18 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
+  '@azure/core-rest-pipeline@1.23.0(supports-color@10.2.2)':
+    dependencies:
+      '@azure/abort-controller': 2.2.0
+      '@azure/core-auth': 1.11.0(supports-color@10.2.2)
+      '@azure/core-tracing': 1.4.0
+      '@azure/core-util': 1.14.0(supports-color@10.2.2)
+      '@azure/logger': 1.4.0(supports-color@10.2.2)
+      '@typespec/ts-http-runtime': 0.3.7(supports-color@10.2.2)
+      tslib: 2.8.1
+    transitivePeerDependencies:
+      - supports-color
+
   '@azure/core-rest-pipeline@1.25.0(supports-color@10.2.2)':
     dependencies:
       '@azure/abort-controller': 2.2.0
@@ -2235,7 +2251,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@azure/storage-blob@12.33.0(supports-color@10.2.2)':
+  '@azure/storage-blob@12.31.0(supports-color@10.2.2)':
     dependencies:
       '@azure/abort-controller': 2.2.0
       '@azure/core-auth': 1.11.0(supports-color@10.2.2)
