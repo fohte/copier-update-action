@@ -15,6 +15,10 @@ concurrency:
 
 jobs:
   release-please:
+    concurrency:
+      group: release-please-${{ github.repository }}
+      cancel-in-progress: false
+      queue: max
     runs-on: ubuntu-latest
     permissions:
       id-token: write

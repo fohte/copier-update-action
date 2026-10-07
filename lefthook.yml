@@ -66,6 +66,12 @@ pre-commit:
         - 'dist/**'
       run: pnpm exec eslint {staged_files}
 
+    ast-grep:
+      glob: '*.{js,ts,jsx,tsx,mjs,cjs,mts,cts,rs}'
+      exclude:
+        - 'dist/**'
+      run: ast-grep scan {staged_files}
+
 commit-msg:
   commands:
     commitlint:
